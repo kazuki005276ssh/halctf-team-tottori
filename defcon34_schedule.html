@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DEF CON 34 スケジュール表 — Kazuki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#101219; --panel:#191C25; --panel2:#212633; --rule:#2C3140;
+    --fg:#E9E7E2; --dim:#8E95A8; --dim2:#666D80;
+    --ai:#FF5C4D; --cv:#3E8FF0; --av:#F2A33C; --ct:#2ED8A0; --ws:#A97BF0;
+    --warn:#FF3D71; --ok:#2ED8A0;
+    --mono:'Roboto Mono',ui-monospace,monospace;
+    --disp:'Barlow Condensed',sans-serif;
+    --body:'Noto Sans JP',system-ui,sans-serif;
+    --pxmin:1.6;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--ink); color:var(--fg); font-family:var(--body);
+    font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit}
+  .wrap{max-width:1500px;margin:0 auto;padding:0 18px 80px}
+
+  /* ── header ── */
+  header{padding:34px 0 20px;border-bottom:1px solid var(--rule)}
+  .eyebrow{
+    font-family:var(--mono);font-size:11px;letter-spacing:.22em;
+    color:var(--dim2);text-transform:uppercase;margin-bottom:10px;
+  }
+  h1{
+    font-family:var(--disp);font-weight:700;font-size:clamp(38px,6vw,66px);
+    line-height:.94;letter-spacing:-.01em;margin:0 0 6px;
+  }
+  h1 .sub{display:block;font-size:.34em;letter-spacing:.16em;color:var(--dim);font-weight:600;margin-top:12px}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:18px;font-family:var(--mono);font-size:12px;color:var(--dim)}
+  .meta b{color:var(--fg);font-weight:500}
+
+  /* ── tabs ── */
+  nav{position:sticky;top:0;z-index:40;background:rgba(16,18,25,.94);backdrop-filter:blur(10px);
+      border-bottom:1px solid var(--rule);margin-bottom:26px}
+  .tabs{display:flex;gap:2px;overflow-x:auto;max-width:1500px;margin:0 auto;padding:0 18px}
+  .tab{
+    flex:0 0 auto;appearance:none;background:none;border:0;border-bottom:2px solid transparent;
+    color:var(--dim);font-family:var(--disp);font-weight:600;font-size:17px;letter-spacing:.04em;
+    padding:14px 16px 11px;cursor:pointer;white-space:nowrap;
+  }
+  .tab:hover{color:var(--fg)}
+  .tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--fg)}
+  .tab small{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;color:var(--dim2);font-weight:400}
+  .tab[aria-selected="true"] small{color:var(--dim)}
+  .tab:focus-visible{outline:2px solid var(--ct);outline-offset:-2px}
+
+  /* ── panel ── */
+  .panel{display:none} .panel.on{display:block}
+  .dayhead{display:flex;flex-wrap:wrap;align-items:baseline;gap:16px;margin-bottom:6px}
+  .dayhead h2{font-family:var(--disp);font-weight:700;font-size:30px;margin:0;letter-spacing:.01em}
+  .dayhead .tag{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em}
+  .daynote{color:var(--dim);font-size:13px;margin:0 0 22px;max-width:76ch}
+  .daynote b{color:var(--fg);font-weight:500}
+
+  /* ── legend ── */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin:0 0 18px;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--dim)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+  /* ── timetable ── */
+  .board{display:grid;gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  .col{background:var(--ink);min-width:0}
+  .colhead{
+    background:var(--panel);padding:9px 11px;border-bottom:1px solid var(--rule);
+    position:sticky;top:53px;z-index:20;
+  }
+  .colhead .nm{font-family:var(--disp);font-weight:600;font-size:15px;letter-spacing:.03em;display:flex;align-items:center;gap:7px}
+  .colhead .loc{font-family:var(--mono);font-size:9.5px;color:var(--dim2);letter-spacing:.05em;margin-top:2px}
+  .track{position:relative;padding:0 8px}
+
+  /* gutter */
+  .gutter{background:var(--panel);position:relative}
+  .gutter .colhead{background:var(--panel2)}
+  .gtrack{position:relative}
+  .gtick{position:absolute;left:0;right:0;border-top:1px solid var(--rule)}
+  .gtick i{
+    position:absolute;left:9px;top:-8px;font-family:var(--mono);font-size:11px;
+    font-weight:500;color:var(--dim);font-style:normal;letter-spacing:.04em;
+  }
+  .gtick::after{content:"";position:absolute;right:-1px;top:-3.5px;width:7px;height:7px;
+    border-radius:50%;background:var(--ink);border:1.5px solid var(--rule)}
+
+  /* event card */
+  .ev{
+    position:absolute;left:8px;right:8px;background:var(--panel);
+    border-left:3px solid var(--rule);border-radius:2px;
+    padding:5px 8px 6px;overflow:hidden;
+  }
+  .ev .t{font-family:var(--mono);font-size:9.5px;color:var(--dim2);letter-spacing:.04em;display:block}
+  .ev .ti{font-size:12px;font-weight:500;line-height:1.32;margin:1px 0 0;display:block}
+  a.evlink{text-decoration:none;color:inherit;border-bottom:1px dotted rgba(233,231,226,.28)}
+  a.evlink:hover{border-bottom-style:solid;border-bottom-color:currentColor}
+  a.evlink:focus-visible{outline:2px solid var(--ct);outline-offset:2px}
+  .ev .src{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.04em;
+    opacity:.72;font-weight:400;margin-top:2px}
+  .ev .who{font-size:10.5px;color:var(--dim);margin-top:2px;line-height:1.3}
+  .ev .flags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+  .fl{font-family:var(--mono);font-size:8.5px;letter-spacing:.07em;padding:1px 5px;border-radius:2px;
+      border:1px solid var(--rule);color:var(--dim)}
+  .fl.reg{border-color:var(--ct);color:var(--ct)}
+  .fl.wait{border-color:var(--ws);color:var(--ws)}
+  .fl.lab{border-color:var(--cv);color:var(--cv)}
+  .fl.due{border-color:var(--warn);color:var(--warn);background:rgba(255,61,113,.1)}
+  .ev.p3{background:var(--panel2);border-left-width:5px}
+  .ev.p3 .ti{font-weight:700}
+  .ev.p1{opacity:.62}
+  .ev.p1 .ti{font-weight:400}
+  .star{font-family:var(--mono);font-size:10px;letter-spacing:-.5px;float:right;margin-left:6px}
+
+  /* conflict band */
+  .clash{position:absolute;left:0;right:0;pointer-events:none;z-index:5;
+    background:repeating-linear-gradient(45deg,rgba(255,61,113,.11) 0 6px,transparent 6px 12px);
+    border-top:1px dashed rgba(255,61,113,.5);border-bottom:1px dashed rgba(255,61,113,.5)}
+
+  /* ── prep ── */
+  .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:18px 20px}
+  .card.hot{border-color:var(--warn);background:linear-gradient(180deg,rgba(255,61,113,.09),transparent 60%),var(--panel)}
+  .card h3{font-family:var(--disp);font-weight:700;font-size:20px;margin:0 0 3px;letter-spacing:.02em}
+  .card .when{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em;margin-bottom:12px}
+  .card.hot .when{color:var(--warn)}
+  .card p{margin:0 0 10px;font-size:13px;color:var(--dim);line-height:1.65}
+  .card p b{color:var(--fg);font-weight:500}
+  ul.chk{list-style:none;margin:0;padding:0}
+  ul.chk li{display:flex;gap:9px;padding:6px 0;border-bottom:1px solid rgba(44,49,64,.55);font-size:13px;align-items:flex-start}
+  ul.chk li:last-child{border-bottom:0}
+  ul.chk li::before{content:"☐";font-family:var(--mono);color:var(--dim2);flex:0 0 auto;line-height:1.5}
+  ul.chk li.done::before{content:"☑";color:var(--ok)}
+  ul.chk li.done{color:var(--dim2)}
+  ul.chk li.no::before{content:"✕";color:var(--dim2)}
+  ul.chk li.no{color:var(--dim2)}
+  .lnk{font-family:var(--mono);font-size:11px;color:var(--cv);word-break:break-all;text-decoration:none;border-bottom:1px solid rgba(62,143,240,.35)}
+  .lnk:hover{border-bottom-color:var(--cv)}
+  .kv{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.05em}
+  .sechead{font-family:var(--disp);font-weight:700;font-size:26px;margin:34px 0 14px;letter-spacing:.02em;
+    padding-bottom:8px;border-bottom:1px solid var(--rule)}
+  .sechead:first-child{margin-top:0}
+
+  table.lk{width:100%;border-collapse:collapse;font-size:12.5px}
+  table.lk td{padding:8px 10px;border-bottom:1px solid var(--rule);vertical-align:top}
+  table.lk td:first-child{width:38%;color:var(--fg)}
+  table.lk tr:last-child td{border-bottom:0}
+
+  .callout{border-left:3px solid var(--warn);padding:10px 14px;background:rgba(255,61,113,.07);
+    font-size:13px;margin:14px 0;border-radius:0 3px 3px 0}
+  .callout b{color:var(--warn)}
+
+  @media (max-width:1000px){
+    .board{grid-template-columns:1fr !important}
+    .colhead{position:static}
+    .gutter{display:none}
+  }
+  @media print{
+    body{background:#fff;color:#000}
+    nav,.legend{display:none}
+    .panel{display:block !important;page-break-before:always}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">DEF CON 34 ／ Las Vegas Convention Center ／ Aug 6–9, 2026</div>
+    <h1>スケジュール表<span class="sub">AI SECURITY × THREAT MODELING — 4 DAY PLAN</span></h1>
+    <div class="meta">
+      <span>参加登録 <b>決済済み</b></span>
+      <span>テーマ <b>Agency</b></span>
+      <span>7月中の期限 <b>3件</b></span>
+      <span>ラボ確定 <b>3件</b></span>
+      <span>Waitlist <b>4件</b></span>
+      <span>最終更新 <b>2026-07-24</b></span>
+    </div>
+  </header>
+</div>
+
+<nav>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-p="prep">事前準備<small>— JUL</small></button>
+    <button class="tab" role="tab" aria-selected="false" data-p="d1">木<small>AUG 6</small></button>
+    <button class="tab" role="tab" aria-selected="false" data-p="d2">金<small>AUG 7</small></button>
+    <button class="tab" role="tab" aria-selected="false" data-p="d3">土<small>AUG 8</small></button>
+    <button class="tab" role="tab" aria-selected="false" data-p="d4">日<small>AUG 9</small></button>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<!-- ══════════ 事前準備 ══════════ -->
+<section class="panel on" id="p-prep">
+
+  <div class="sechead">期限のあるもの</div>
+  <div class="grid2">
+    <div class="card hot">
+      <h3>Cloud Village ラボ 事前登録</h3>
+      <div class="when">今すぐ ／ 枠が埋まり次第終了</div>
+      <p>Room 312 で行う講師付きハンズオン全13本の事前登録。<b>満席になった公式ワークショップの代替はここ。</b>特に Breaking AWS Bedrock と Weaponizing CloudFormation は本命。</p>
+      <a class="lnk" href="https://forms.gle/62vUrxFuW7prwUze9" target="_blank" rel="noopener">forms.gle/62vUrxFuW7prwUze9</a>
+    </div>
+    <div class="card hot">
+      <h3>Cloud Village CTF 登録</h3>
+      <div class="when">7月31日（金）02:00 JST ／ 7月30日 10:00 PDT</div>
+      <p>2日間ジェパディ形式。ソロ参加可。<b>日本時間の深夜なのでアラーム必須。</b>題材はIAM設定不備・コンテナ・クラウド偵察・サーバーレス・シークレット管理。</p>
+      <a class="lnk" href="https://ctf.cloud-village.org" target="_blank" rel="noopener">ctf.cloud-village.org</a>
+    </div>
+    <div class="card hot">
+      <h3>Fix the Flag — チャレンジを作る側で応募</h3>
+      <div class="when">7月31日（金）締切 ／ Sessionize から登録</div>
+      <p>自作のAppSecチャレンジを応募でき、<b>承認されたものは DEF CON 34 のライブCTFに組み込まれる。</b>「Best Level」として独立した受賞枠もある。プレイして入賞するより価値の高い実績になり得る。</p>
+      <p>題材は自分の専門から選べる — IAM設定不備、OIDC実装ミス、RAGパイプラインへのプロンプトインジェクション、MCPツールの過剰権限。</p>
+      <a class="lnk" href="https://sessionize.com/appsec-village-wargame" target="_blank" rel="noopener">sessionize.com/appsec-village-wargame</a>
+    </div>
+  </div>
+
+  <div class="sechead">今週中</div>
+  <div class="grid2">
+    <div class="card">
+      <h3>AI Village Discord</h3>
+      <div class="when">HALCTF の唯一の情報源</div>
+      <ul class="chk">
+        <li class="done">サーバー参加 ／ #start-here 自己紹介 投稿済み</li>
+        <li>Villager ロールの付与を確認（全チャンネル解放）</li>
+        <li>#ctf-discussion で Godkim の HALctf 質問にスレッド返信</li>
+        <li>スターターコードの有無を github.com/aivillage で確認</li>
+      </ul>
+      <p style="margin-top:12px">7/13・7/20 に2人が仕様を質問し、いずれも運営から回答なし。<b>提出方法は現時点で未確定。</b>「7/30 Docker提出」は公式に確認できていない。</p>
+    </div>
+    <div class="card">
+      <h3>登録可否を自分で確認</h3>
+      <div class="when">開いていれば登録／なければ当日参加</div>
+      <ul class="chk">
+        <li class="no">Kubernetes CTF — 登録導線は存在しない。当日参加</li>
+        <li class="no">DC's Next Top Threat Model — 金曜10:00 PDT に現地登録</li>
+        <li>Crack Me If You Can — contest-2026.korelogic.com</li>
+      </ul>
+      <p style="margin-top:12px">HALctf・AI Village Drop-In・AppSec Village・各CTFは<b>すべて当日飛び込み</b>。バッジがあれば入れる。</p>
+    </div>
+  </div>
+
+  <div class="sechead">出発前（〜8月5日）</div>
+  <div class="grid2">
+    <div class="card">
+      <h3>持ち物</h3>
+      <div class="when">無いと参加できないもの</div>
+      <ul class="chk">
+        <li>Burp Suite / Caido / ZAP — Bug Bounty Village CTF 必須</li>
+        <li>ノイキャン付きヘッドセット＋マイク — Escalation Desk CTF</li>
+        <li>有線イーサネットアダプタ — Capture The Packet</li>
+        <li>ラップトップ（管理者権限あり）／充電器／電源タップ</li>
+        <li>AWS CLI v2 ＋ Python 3.10+ ＋ Terraform 1.5+ を導入済みに</li>
+        <li>Docker / Podman Compose、Azure CLI、sqlite3 browser（Cirroラボ用）</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>事前学習</h3>
+      <div class="when">CTFは出力の場。入力は先に済ませる</div>
+      <ul class="chk">
+        <li>SecDim の DEF CON 準備ページで Fix the Flag を練習 — secdim.com/defcon</li>
+        <li>Lakera Gandalf レベル1〜8（1〜2時間）</li>
+        <li>PortSwigger「Web LLM attacks」学習パス＋ラボ</li>
+        <li>OWASP LLM Top 10 ／ Agentic Top 10 ／ MCP Top 10 を通読</li>
+        <li>STRIDE と DFD の型づくり（OWASP Threat Dragon / pytm）</li>
+        <li>oshikatu-ai の脅威モデルを一度自分で書く ← 面接資産になる</li>
+        <li>IAM権限昇格・SSRF→IMDS・クロスアカウント信頼の復習</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="sechead">Waitlist（DEF CON 公式ワークショップ）</div>
+  <div class="card">
+    <p>無料・4時間・座席限定。事前登録は7月14日正午PDT開始で<b>4件すべて満席</b>。waitlist 登録済み。<br>
+    無料枠はノーショーが必ず出る。<b>開始15分前に教室前へ行き、空席の飛び込みを狙う。</b>通知はメールで来て早い者勝ちなので、現地でも即座に見られる状態にしておく。</p>
+    <table class="lk" style="margin-top:12px">
+      <tr><td>金 09:00–13:00 ／ W228</td><td>WS3 AWS Cloud Security 101: IAM Misconfigurations to Account Takeover　<span class="kv">優先 2位</span></td></tr>
+      <tr><td>土 09:00–13:00 ／ W230</td><td>WS1 HackTheCloud26: Chaining Cloud Misconfigurations　<span class="kv">優先 4位</span></td></tr>
+      <tr><td>土 14:00–18:00 ／ W229</td><td>WS2 From Prompt to PWN: Exploiting LLM Powered Web Apps　<span class="kv" style="color:var(--ct)">優先 1位</span></td></tr>
+      <tr><td>土 14:00–18:00 ／ W228</td><td>WS3 Entra ID Persistence　<span class="kv">優先 3位</span> — WS2と同時刻</td></tr>
+    </table>
+    <div class="callout"><b>土曜18:00 の罠。</b>WS2 が繰り上がると終了が18:00。DC's Next Top Threat Model の提出締切も18:00 PDT。<b>WS2 に入るなら脅威モデルは昼までに提出を終わらせる。</b></div>
+  </div>
+
+  <div class="sechead">もう間に合わないもの（記録）</div>
+  <div class="card">
+    <table class="lk">
+      <tr><td>DEF CON CTF 本戦</td><td>オンライン予選 5/22–24 で終了。通過者のみ</td></tr>
+      <tr><td>Battle of the Bots / SECVC</td><td>Call for Competitors で選抜済み</td></tr>
+      <tr><td>AI Village ポスタートラック</td><td>CFP 6/14 締切・採択通知 6/28</td></tr>
+      <tr><td>公式ワークショップ 事前登録</td><td>7/14 正午PDT 先着順で満席 → waitlist のみ</td></tr>
+      <tr><td>Hacker Jeopardy</td><td>事前登録必須</td></tr>
+    </table>
+    <p style="margin-top:14px"><b>2027年（DEF CON 35：8/5–8）に向けて。</b>ワークショップ登録は7月中旬・正午PDT・先着順。CTF予選は5月。ポスターCFPと Call for Competitors は3〜6月。前年から日程を張っておく。</p>
+  </div>
+
+  <div class="sechead">リンク</div>
+  <div class="card">
+    <table class="lk">
+      <tr><td>DEF CON コンテスト一覧</td><td><a class="lnk" href="https://www.defcon.org/html/defcon-34/dc-34-contests.html" target="_blank" rel="noopener">defcon.org/…/dc-34-contests.html</a></td></tr>
+      <tr><td>DEF CON ヴィレッジ一覧</td><td><a class="lnk" href="https://defcon.org/html/defcon-34/dc-34-villages.html" target="_blank" rel="noopener">defcon.org/…/dc-34-villages.html</a></td></tr>
+      <tr><td>DEF CON ワークショップ一覧</td><td><a class="lnk" href="https://defcon.org/html/defcon-34/dc-34-workshops.html" target="_blank" rel="noopener">defcon.org/…/dc-34-workshops.html</a></td></tr>
+      <tr><td>AI Village</td><td><a class="lnk" href="https://aivillage.org" target="_blank" rel="noopener">aivillage.org</a> ／ <a class="lnk" href="https://aivillage.org/discord/" target="_blank" rel="noopener">/discord/</a></td></tr>
+      <tr><td>Cloud Village DC34</td><td><a class="lnk" href="https://www.cloud-village.org/dc34" target="_blank" rel="noopener">cloud-village.org/dc34</a></td></tr>
+      <tr><td>AppSec Village DC34 スケジュール</td><td><a class="lnk" href="https://www.appsecvillage.com/events/dc-2026" target="_blank" rel="noopener">appsecvillage.com/events/dc-2026</a></td></tr>
+      <tr><td>Fix the Flag（AppSec Village CTF）</td><td><a class="lnk" href="https://www.appsecvillage.com/ctf" target="_blank" rel="noopener">appsecvillage.com/ctf</a></td></tr>
+      <tr><td>SecDim 準備ページ ／ 事前練習</td><td><a class="lnk" href="https://secdim.com/defcon" target="_blank" rel="noopener">secdim.com/defcon</a></td></tr>
+      <tr><td>Fix the Flag チャレンジ応募（7/31）</td><td><a class="lnk" href="https://sessionize.com/appsec-village-wargame" target="_blank" rel="noopener">sessionize.com/appsec-village-wargame</a></td></tr>
+      <tr><td>AppSec Village Discord</td><td><a class="lnk" href="https://discord.gg/5XY8qYXd7R" target="_blank" rel="noopener">discord.gg/5XY8qYXd7R</a></td></tr>
+      <tr><td>Kubernetes CTF</td><td><a class="lnk" href="https://containersecurityctf.com" target="_blank" rel="noopener">containersecurityctf.com</a></td></tr>
+      <tr><td>DC's Next Top Threat Model</td><td><a class="lnk" href="https://threatmodel.us" target="_blank" rel="noopener">threatmodel.us</a></td></tr>
+      <tr><td>統合スケジュール The One!</td><td><a class="lnk" href="https://defcon.outel.org/dcwp/dc34/" target="_blank" rel="noopener">defcon.outel.org/dcwp/dc34/</a></td></tr>
+      <tr><td>公式アプリ</td><td>Hacker Tracker（iOS / Android）＋ <a class="lnk" href="https://info.defcon.org" target="_blank" rel="noopener">info.defcon.org</a></td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════ 各日 ══════════ -->
+<section class="panel" id="p-d1"></section>
+<section class="panel" id="p-d2"></section>
+<section class="panel" id="p-d3"></section>
+<section class="panel" id="p-d4"></section>
+
+</div>
+
+<script>
+const PX = 1.6;              // px per minute
+const m = s => { const [h,mm]=s.split(':').map(Number); return h*60+mm; };
+
+const TRACKS = {
+  ai:{nm:'AI Village',   loc:'HALctf ／ Drop-In Workshops', c:'var(--ai)', u:'https://aivillage.org/events/defcon-34/', src:'aivillage.org'},
+  cv:{nm:'Cloud Village',loc:'Talks ／ Labs = Room 312 Zone A·B', c:'var(--cv)', u:'https://www.cloud-village.org/dc34', src:'cloud-village.org/dc34'},
+  av:{nm:'AppSec Village',loc:'L1 West Hall 2 · Booth 604', c:'var(--av)', u:'https://www.appsecvillage.com/events/dc-2026', src:'appsecvillage.com'},
+  ct:{nm:'Contest ／ Workshop', loc:'公式WS · CTF · 締切', c:'var(--ct)', u:'https://www.defcon.org/html/defcon-34/dc-34-contests.html', src:'defcon.org'}
+};
+
+// p: 3=必須 2=推奨 1=余裕があれば
+const DAYS = {
+d1:{ title:'8月6日（木） Day 1 — 参加できるものは少ない。翌日の勝率を上げる日', tag:'Cloud Village · AppSec Village は金曜開始 ／ 会場は 08:00–20:00',
+  note:'DEF CON 本体は木〜土 08:00–20:00 で通常営業。ただし<b>あなたが狙う Cloud Village と AppSec Village は金曜からで、木曜はプログラムが無い。</b>さらにこの日は Black Hat 最終日と重なり全体的に薄い。<b>「参加する日」ではなく「HALctf を確定させ、動線を作り、体力を残す日」</b>と割り切る。',
+  from:'08:00', to:'20:00', tracks:['ai','ct'], clash:[],
+  ev:[
+   {tk:'ct',s:'08:00',e:'09:00',p:3,ti:'バッジ受取',who:'事前決済済み。8:00 開場。LineCon（当日現金列）とは別導線',u:'https://info.defcon.org',src:'info.defcon.org'},
+   {tk:'ct',s:'09:00',e:'11:00',p:3,ti:'会場レイアウトの把握',who:'LVCC West Hall は広い。AI Village／Cloud Village（Room 312）／AppSec Village（L1 West Hall 2 Booth 604）／Contest Area の位置と徒歩時間を実測しておく'},
+   {tk:'ai',s:'10:00',e:'12:00',p:3,ti:'HALctf の参加方法を運営に直接確認',who:'この日の最大の目的。Discord で7/13・7/20 に質問した2名とも未回答のまま。事前提出型か現地構築型か／Dockerイメージ仕様／GPU割当の申請方法／スターターコードの有無',fl:['最優先','他の日にはできない']},
+   {tk:'ai',s:'12:00',e:'18:00',p:2,ti:'Drop-In Workshops の掲示を確認',who:'予約不要・出入り自由のミニ講習。LLMの仕組み／エージェントのゼロからの構築／prompt injection／マルウェア検知モデルの操作。村のクラスタで動くのでGPU・APIキー不要。個別の講座名と時刻は非公開のため当日の掲示が唯一の情報源'},
+   {tk:'ct',s:'11:00',e:'14:00',p:2,ti:'Contest Area / Demo Labs の偵察',who:'木曜から動いている競技を確認。Bug Bounty Village・Escalation Desk・Adversary Village などが開いていれば軽く触る（開場状況は現地確認）',u:'https://www.defcon.org/html/defcon-34/dc-34-contests.html',src:'defcon.org / contests'},
+   {tk:'ct',s:'14:00',e:'16:00',p:2,ti:'Trace Labs OSINT チケット受取',who:'OSINT4Good コミュニティスペースで無料チケットをもらう'},
+   {tk:'ct',s:'16:00',e:'17:00',p:2,ti:'金曜の下見 — W228 / W229 / Room 312',who:'ワークショップ教室（W228・W229・W230）と Cloud Village ラボ会場の場所を先に押さえる。金曜08:45 の空席待ちで迷わないため'},
+   {tk:'ct',s:'18:00',e:'20:00',p:3,ti:'時間割の確定',who:'Hacker Tracker と各村 Discord で実開催時刻を突き合わせ、この表を上書きする。金土は分単位の判断が必要になる',u:'https://info.defcon.org',src:'info.defcon.org'},
+   {tk:'ct',s:'20:00',e:'20:00',p:1,ti:'早めに休む',who:'土曜がピーク。初日に消耗しない'}
+  ]},
+
+d2:{ title:'8月7日（金） Day 2 — クラウド ＋ AI 攻撃面', tag:'Cloud Village CTF 開始 ／ DCNTTM 登録開始',
+  note:'午前は <b>Seth Art の IAM攻撃パス</b>、11:00 から <b>確定ラボ Weaponizing CloudFormation（W311 Zone A）</b>。午後は MCP と agentic IAM が連続。夕方16:00以降が衝突帯 — ラボは取らないので <b>MCPパネル＋Trust Fall</b> を優先できる。',
+  from:'08:30', to:'18:30', tracks:['ai','cv','av','ct'],
+  clash:[{s:'11:00',e:'13:00',t:'確定ラボ CloudFormation vs Seth Art IAMトーク後半・PRTトーク'},
+         {s:'16:00',e:'17:30',t:'MCPパネル＋Trust Fall（Cirroラボは未登録なのでこちらを取る）'}],
+  ev:[
+   {tk:'ai',s:'10:00',e:'18:00',p:2,ti:'HALctf ／ Drop-In Workshops',who:'ミニ講習は予約不要・出入り自由。席が空いたら座る運用。時刻は当日掲示のみ'},
+
+   {tk:'cv',s:'10:00',e:'10:10',p:1,ti:'Opening note'},
+   {tk:'cv',s:'10:10',e:'10:50',p:3,ti:'New AWS IAM Attack Paths and the Framework to Exploit Them',who:'Seth Art ／ 未公開サービス群の権限昇格12種＋Pathrunner ／ 11:00 のラボ前に必ず聴く',fl:['IAM直撃']},
+   {tk:'cv',s:'10:50',e:'11:30',p:2,ti:'Tokens and PRT: Advanced Attacks in Microsoft Entra ID',who:'Elzer Pineda & Jose Rivas ／ PRT窃取・MFAバイパス'},
+   {tk:'cv',s:'11:00',e:'13:00',p:3,ti:'【登録確定】Weaponizing CloudFormation: Privilege Escalation via IaC',who:'Samanta Aranda ／ Bishop Fox ／ Room W311 Zone A ／ 5分前に着席',fl:['LAB 登録済','WS3の代替'],q:'Weaponizing CloudFormation'},
+   {tk:'cv',s:'11:30',e:'12:10',p:1,ti:'From Pipeline to Cloud Control',who:'Azure DevOps サービス接続の悪用'},
+   {tk:'cv',s:'12:10',e:'12:50',p:2,ti:'Security at Machine Speed: Autonomous AI Agents in Cloud Defense',who:'AWS スポンサー枠'},
+   {tk:'cv',s:'13:20',e:'14:00',p:3,ti:'The Hidden Cost of Agentic Connectivity',who:'Trend ／ MCPサーバー19,000台の脆弱性調査と防御機能のバイパス',fl:['MCP']},
+   {tk:'cv',s:'13:30',e:'15:30',p:2,ti:'Cloudy with a Chance of Breaches: Hands-On AWS Threat Defense',who:'EKS＋S3＋Bedrock の脆弱アプリ／Bedrockへのinjectionをガードレールで遮断 ／ Zone A',fl:['LAB 要登録']},
+   {tk:'cv',s:'15:30',e:'16:10',p:3,ti:'The Polymorphic Agent: Cross Agent Escalation on Azure',who:'Muskan Tomar ／ Microsoft ／ ツール汚染からIAM自己昇格・エージェント間伝播',fl:['OWASP MCP']},
+   {tk:'cv',s:'16:00',e:'18:00',p:1,ti:'Cirro: Extending Your Azure Graph Beyond Identities（未登録）',who:'Leron Gray ／ Stormspotter後継・Neo4j攻撃パス ／ ラボは3本に確定済みで対象外。この枠は MCPパネル＋Trust Fall を優先',fl:['LAB 未登録'],q:'Cirro'},
+   {tk:'cv',s:'16:10',e:'16:50',p:3,ti:'Panel: The New Software Supply Chain Nobody is Securing — MCP',who:'何が接続を許されるべきか。ポート側で強制すべきか'},
+   {tk:'cv',s:'16:50',e:'17:30',p:3,ti:'Trust Fall: How Agentic AI Inherits Your Cloud\u2019s Worst IAM Habits',who:'間接injection → 過剰権限Lambda → IAM改変 → バックドア。認証情報の窃取なしで完結',fl:['本命']},
+
+   {tk:'av',s:'10:30',e:'12:30',p:1,ti:'Workshop: Burp, But Yours — Extension and Bambda Development',who:'Hannah L ／ 2時間'},
+   {tk:'av',s:'11:10',e:'11:40',p:2,ti:'Pickled and Exposed: RCE in AI Serving Frameworks'},
+   {tk:'av',s:'11:50',e:'12:20',p:2,ti:'A Billion-User Blast Radius: Owning ChatGPT\u2019s Secure Sandbox'},
+   {tk:'av',s:'13:10',e:'13:40',p:2,ti:'Agentic Chaos — 86K のエージェントコードベースが示す70万の露出AIシステム'},
+   {tk:'av',s:'13:50',e:'14:20',p:1,ti:'from_pretrained() to from_pwned(): Breaking HuggingFace\u2019s Trust'},
+   {tk:'av',s:'14:30',e:'17:00',p:1,ti:'Workshop: Container Escapes 101',who:'2.5時間'},
+   {tk:'av',s:'16:30',e:'17:00',p:2,ti:'脅威モデリング成果物はコーディングエージェントの役に立たない。では何が役立つか',who:'Meitar Ronen',fl:['脅威モデリング'],q:'Most threat modeling artifacts'},
+   {tk:'av',s:'17:10',e:'17:40',p:1,ti:'Trust No History: 記憶された対話はすべて潜在的バックドア'},
+
+   {tk:'ct',s:'08:45',e:'09:00',p:2,ti:'WS3 空席待ち — W228',who:'AWS Cloud Security 101 ／ 開始15分前に教室前へ',fl:['WAITLIST'],u:'https://events.humanitix.com/fri_am_ws3_4073',src:'humanitix / WS3'},
+   {tk:'ct',s:'09:00',e:'13:00',p:2,ti:'WS3 AWS Cloud Security 101（繰り上がった場合）',who:'IAM権限昇格→SSRF/IMDS→クロスアカウント→CloudTrail回避',fl:['WAITLIST'],u:'https://events.humanitix.com/fri_am_ws3_4073',src:'humanitix / WS3'},
+   {tk:'ct',s:'10:00',e:'10:20',p:3,ti:'Cloud Village CTF 開始',who:'→ 8/8 23:59 PDT まで。隙間時間に随時加点',fl:['登録済み前提'],u:'https://ctf.cloud-village.org',src:'ctf.cloud-village.org'},
+   {tk:'ct',s:'10:00',e:'10:30',p:3,ti:'DCNTTM 登録 ＋ 設計資料の受取',who:'LVCC 1F Hall 1 Contest floor ／ 受け取れば場所を問わず作業可',fl:['土18:00締切'],u:'https://threatmodel.us',src:'threatmodel.us'},
+   {tk:'ct',s:'10:20',e:'11:50',p:3,ti:'Fix the Flag Wargame 開始（SecDim）',who:'脆弱性を「直す」と得点する形式 ／ 8/9 11:45 まで ／ リモート参加可',fl:['直せる証明'],u:'https://www.appsecvillage.com/ctf',src:'appsecvillage.com/ctf'},
+   {tk:'ct',s:'12:00',e:'13:00',p:1,ti:'Kubernetes CTF — Learning CTF 開始',who:'土曜本戦の予行として1時間触る',u:'https://containersecurityctf.com',src:'containersecurityctf.com'},
+   {tk:'ct',s:'13:00',e:'17:00',p:2,ti:'Bug Bounty Village CTF ／ Escalation Desk CTF',who:'Burp必須 ／ ヘッドセット推奨。ラボの合間に'}
+  ]},
+
+d3:{ title:'8月8日（土） Day 3 — 主戦場', tag:'渋滞ピーク ／ 締切2件',
+  note:'<b>ラボ2本が確定した（Bedrock 13:30-15:30 → AI Stack 16:00-18:00）ため、土曜午後は W311 に固定。</b>午前は Prompt Injection ワークショップ（3時間・無料）を軸に、<b>12:25 に一度抜けて Adam Shostack を聴く</b>。WS2(From Prompt to PWN)が繰り上がってもラボと同時刻で両立不可 — ラボを優先。<b>DCNTTM は午前のうちに提出を終わらせる。</b>',
+  from:'08:30', to:'18:30', tracks:['ai','cv','av','ct'],
+  clash:[{s:'12:20',e:'13:00',t:'Shostack vs Prompt Injection WS終盤 vs Pinchy vs FinBot'},
+         {s:'13:30',e:'18:00',t:'確定ラボ2本(Bedrock→AI Stack) が午後を占有 — WS2・AppSec午後・Kubernetes本戦は捨てる'}],
+  ev:[
+   {tk:'ai',s:'10:00',e:'18:00',p:2,ti:'HALctf 継続 ／ Drop-In Workshops'},
+
+   {tk:'cv',s:'10:00',e:'10:40',p:1,ti:'Bashing CloudShells for mining, networking, exfil and persistence'},
+   {tk:'cv',s:'11:00',e:'13:00',p:1,ti:'From Findings to Remediations: Prowler at AI Speed',who:'Prowler＋Claude Code プラグイン／MCPワークフロー ／ Zone B',fl:['LAB']},
+   {tk:'cv',s:'11:20',e:'12:00',p:2,ti:'Trust the Cloud Pipeline, Lose the Kingdom',who:'CI/CD 完全侵害チェーン'},
+   {tk:'cv',s:'12:20',e:'13:00',p:3,ti:'Pinchy Gets Played: How We Red-Teamed AI Agents Before the Threats Did',who:'Varonis ／ 技術攻撃には耐え社会的攻撃で即落ちたエージェント',fl:['AI Red Team']},
+   {tk:'cv',s:'13:30',e:'15:30',p:3,ti:'【登録確定】Breaking AWS Bedrock: Novel Attack Techniques Against Cloud Infrastructure',who:'Tal Peleg & Maya Parizer ／ Varonis ／ Room W311 Zone A ／ 5分前に着席',fl:['LAB 登録済','最優先'],q:'Breaking AWS Bedrock'},
+   {tk:'cv',s:'13:30',e:'14:10',p:2,ti:'What\u2019s Behind the Curtain? Tearing Down AWS\u2019s AI Agent Runtime',who:'Bedrock AgentCore の内部解剖 ／ Project Kepler'},
+   {tk:'cv',s:'14:10',e:'14:50',p:1,ti:'Panel: Autonomous Offense vs. Autonomous Defense'},
+   {tk:'cv',s:'15:20',e:'16:00',p:2,ti:'New Hope for SSRF: Credential Relay from APIM to AI Foundry',who:'Azure 6サービス横断の認証情報リレー'},
+   {tk:'cv',s:'16:00',e:'18:00',p:3,ti:'【登録確定】Securing the AI Stack and Hunting Across Clouds',who:'Bryant Pickford ／ Room W311 ／ エージェント実行ロールの過剰権限・injection痕跡・Guardrails ＋ OCSF横断ハント ／ Bedrockラボ直後に連続',fl:['LAB 登録済']},
+   {tk:'cv',s:'16:40',e:'17:00',p:2,ti:'Key Rotation Won\u2019t Save You: Workload Identity のバックドア'},
+
+   {tk:'av',s:'10:15',e:'13:00',p:3,ti:'Workshop: Prompt Injection — Attacking and Defending AI-Powered Applications',who:'Mohammed Ilyas Ahmed ／ 3時間ハンズオン ／ Classroom',fl:['無料','WS2の代替']},
+   {tk:'av',s:'10:30',e:'11:00',p:2,ti:'Building Hackbots',who:'Jason Haddix'},
+   {tk:'av',s:'11:10',e:'11:40',p:2,ti:'What Your Coding Agent Did Last Night: Runtime Security for AI Coding Agents'},
+   {tk:'av',s:'11:30',e:'12:30',p:2,ti:'Arsenal: Precogly — Open-Source Threat Modeling for the AI-Coding Era',who:'手を動かせる枠',fl:['脅威モデリング']},
+   {tk:'av',s:'12:30',e:'13:00',p:3,ti:'Threat Modeling LLMs with PHANTOM-B',who:'Adam Shostack ／ 脅威モデリングの第一人者が LLM を語る ／ Main Stage',fl:['必ず行く']},
+   {tk:'av',s:'12:45',e:'13:45',p:2,ti:'Arsenal: OWASP FinBot CTF — Hands-On Agentic AI Threats',who:'Helen Oakley & saikishu'},
+   {tk:'av',s:'13:15',e:'16:00',p:1,ti:'Workshop: Supply Chain Isn\u2019t Just Dependencies Anymore',who:'SheHacksPurple ／ 3時間'},
+   {tk:'av',s:'15:10',e:'15:40',p:2,ti:'How Malicious AI Skills Hijack Your Agents',who:'Jenn Gile'},
+   {tk:'av',s:'16:30',e:'17:00',p:3,ti:'No Jailbreak Required: Pwning AI Agents Through the Tools They Trust',who:'saikishu & Helen Oakley',fl:['本命']},
+   {tk:'av',s:'17:10',e:'17:40',p:1,ti:'From Prompts to Production: Exposed PII & IDORs in AI-Generated Apps'},
+
+   {tk:'ct',s:'08:45',e:'09:00',p:1,ti:'WS1 空席待ち — W230',who:'HackTheCloud26 ／ 優先度は最下位。Prompt Injection WS を優先',fl:['WAITLIST'],u:'https://events.humanitix.com/sat_am_ws1_4034',src:'humanitix / WS1'},
+   {tk:'ct',s:'09:00',e:'10:30',p:2,ti:'Fix the Flag 継続（10:00–18:00）',who:'リモート可なので移動中・待機中に加点できる。修正PR型なので思考の切替が軽い',u:'https://www.appsecvillage.com/ctf',src:'appsecvillage.com/ctf'},
+   {tk:'ct',s:'10:30',e:'17:30',p:1,ti:'Kubernetes CTF 競技本戦',who:'この日のみ。ただし Prompt Injection WS と Bedrock ラボを優先すると参加は限定的',u:'https://containersecurityctf.com',src:'containersecurityctf.com'},
+   {tk:'ct',s:'09:00',e:'11:00',p:3,ti:'DCNTTM 脅威モデルを午前に書き上げる',who:'午後はラボで埋まるため前倒し必須。ホテルまたは会場で。18:00提出だが午前に完了させる',fl:['18:00締切'],u:'https://threatmodel.us',src:'threatmodel.us'},
+   {tk:'ct',s:'13:45',e:'14:00',p:1,ti:'WS2 空席待ち — W229（※ラボ優先のため見送り）',who:'From Prompt to PWN ／ Bedrockラボ(13:30-)と衝突。確定ラボを優先する',fl:['WAITLIST','ラボと衝突'],u:'https://events.humanitix.com/sat_pm_ws2_4022',src:'humanitix / WS2'},
+   {tk:'ct',s:'14:00',e:'18:00',p:1,ti:'WS2 From Prompt to PWN（見送り）',who:'繰り上がってもラボ2本(13:30-18:00)と重なるため参加不可。内容はAI Village Drop-Inで補完',fl:['WAITLIST'],u:'https://events.humanitix.com/sat_pm_ws2_4022',src:'humanitix / WS2'},
+   {tk:'ct',s:'17:00',e:'18:00',p:3,ti:'DCNTTM 提出締切 18:00 PDT',who:'WS2に入るなら昼までに提出を完了させておくこと',fl:['DEADLINE'],u:'https://threatmodel.us',src:'threatmodel.us'},
+   {tk:'ct',s:'18:00',e:'18:30',p:3,ti:'Cloud Village CTF 最終追い込み → 23:59 終了',fl:['DEADLINE'],u:'https://ctf.cloud-village.org',src:'ctf.cloud-village.org'}
+  ]},
+
+d4:{ title:'8月9日（日） Day 4 — 脅威モデリングと回収', tag:'Village は13:00で閉場',
+  note:'<b>Robert Hurlbut の脅威モデリング・ワークショップ（3時間）が最大の目玉。</b>前日にDCNTTMで自分なりに書いた直後にこれを受けると定着が段違いになる。Fix the Flag は 11:45 締切・11:50 表彰で同じ部屋。HALctf の結果確認は13:00以降に。',
+  from:'09:30', to:'18:00', tracks:['ai','cv','av','ct'],
+  clash:[{s:'10:15',e:'13:00',t:'脅威モデリングWS がこの時間帯を全て潰す — 承知の上で選ぶ'},
+         {s:'11:45',e:'12:20',t:'Fix the Flag 締切＋表彰 vs 脅威モデリングWS（同室）'}],
+  ev:[
+   {tk:'ai',s:'13:00',e:'15:00',p:3,ti:'HALctf 結果確認 ＋ AI Village 運営との対話',who:'自作エージェントの挙動へのフィードバックは面接ネタとして最も価値が高い',fl:['必ず時間を取る']},
+   {tk:'ai',s:'15:00',e:'16:00',p:1,ti:'AI Village Plays Pokemon ／ HSPACE を体験',who:'余力があれば'},
+
+   {tk:'cv',s:'10:00',e:'10:40',p:2,ti:'Tag, You\u2019re It: Authorization Traps in AWS ABAC',who:'ABACのタグ設計が境界を壊す類型'},
+   {tk:'cv',s:'10:40',e:'11:20',p:2,ti:'When Machines Attack Machines: Detecting AI-Autonomous Cloud Compromise at NHI Scale',who:'非人間ID 100:1 時代の検知エンジニアリング'},
+   {tk:'cv',s:'11:00',e:'13:00',p:1,ti:'CTF 101 Workshop',who:'Cloud Village Team'},
+   {tk:'cv',s:'12:30',e:'13:10',p:2,ti:'The Invisible Runtime: Azure AI Foundry\u2019s Hidden Trust Model'},
+   {tk:'cv',s:'13:10',e:'13:30',p:1,ti:'Closing Note ／ 表彰'},
+
+   {tk:'av',s:'10:15',e:'13:00',p:3,ti:'Workshop: Introduction to AI-Enhanced Threat Modeling',who:'Robert Hurlbut ／ 3時間ハンズオン ／ Intermediate ／ Classroom',fl:['最優先','ラップトップ必須']},
+   {tk:'av',s:'11:10',e:'11:40',p:2,ti:'Extending Shared Threat Models with the Application Attack Matrix',who:'J Fridley ／ WSと重複。抜けるなら30分だけ'},
+   {tk:'av',s:'12:45',e:'13:45',p:2,ti:'Arsenal: The Agent Asked. We Allowed. Now What?'},
+
+   {tk:'ct',s:'10:00',e:'11:45',p:3,ti:'Fix the Flag 最終日 — 11:45 PDT 締切',who:'ワークショップ中でも手元で加点可能。休憩時間に詰める',fl:['DEADLINE'],u:'https://www.appsecvillage.com/ctf',src:'appsecvillage.com/ctf'},
+   {tk:'ct',s:'11:50',e:'12:20',p:2,ti:'Fix the Flag 表彰式 — AppSec Village',who:'脅威モデリングWSと同室・同時刻。入賞圏なら抜ける価値あり',fl:['WSと衝突'],u:'https://www.appsecvillage.com/ctf',src:'appsecvillage.com/ctf'},
+   {tk:'ct',s:'12:30',e:'13:30',p:1,ti:'未回収フラグの詰め',who:'多くのCTFは日曜昼で終了'},
+   {tk:'ct',s:'16:00',e:'17:30',p:2,ti:'結果発表 ／ Closing Ceremony'},
+   {tk:'ct',s:'13:00',e:'14:00',p:2,ti:'AppSec Village PODs 最終回',who:'11:00–13:00 が最後の枠。SBOM Find the Flaws ／ Clash of Prompts'}
+  ]}
+};
+
+function stars(p){ return p===3?'★★★':p===2?'★★':'★'; }
+const hasCJK = s => /[\u3000-\u9FFF\uFF00-\uFFEF]/.test(s);
+// 村サイトはセッション個別URLが無いため、Chrome のテキストフラグメントで該当箇所へ飛ばす
+function deepLink(e, T){
+  if(e.u) return e.u;
+  let q = e.q;
+  if(!q && !hasCJK(e.ti)) q = e.ti;
+  if(!q) return T.u;
+  q = q.replace(/^(Workshop|Arsenal|Panel|LAB)[::]\s*/,'')
+       .split(/[::\u2019'\u2014\u2013—–]/)[0].trim()
+       .split(/\s+/).slice(0,6).join(' ');
+  return T.u + '#:~:text=' + encodeURIComponent(q);
+}
+
+function render(key){
+  const d = DAYS[key];
+  const t0 = m(d.from), t1 = m(d.to), H = (t1-t0)*PX;
+  const cols = d.tracks;
+
+  let h = `<div class="dayhead"><h2>${d.title}</h2><span class="tag">${d.tag}</span></div>
+    <p class="daynote">${d.note}</p>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--ai)"></i>AI VILLAGE</span>
+      <span><i class="dot" style="background:var(--cv)"></i>CLOUD VILLAGE</span>
+      <span><i class="dot" style="background:var(--av)"></i>APPSEC VILLAGE</span>
+      <span><i class="dot" style="background:var(--ct)"></i>CONTEST / WORKSHOP</span>
+      <span>★★★ 必須</span><span>★★ 推奨</span><span>★ 余裕があれば</span>
+      <span style="color:var(--warn)">斜線帯 = 時間衝突</span>
+      <span style="color:var(--dim2)">カードのタイトルをクリック → 出典ページの該当セッションへジャンプ（Chrome）</span>
+    </div>`;
+
+  h += `<div class="board" style="grid-template-columns:74px repeat(${cols.length},minmax(0,1fr))">`;
+
+  // gutter
+  h += `<div class="col gutter"><div class="colhead"><div class="nm" style="color:var(--dim)">TIME</div><div class="loc">PDT</div></div><div class="gtrack" style="height:${H}px">`;
+  for(let t=t0;t<=t1;t+=30){
+    const lbl = String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');
+    h += `<div class="gtick" style="top:${(t-t0)*PX}px">${t%60===0?`<i>${lbl}</i>`:''}</div>`;
+  }
+  h += `</div></div>`;
+
+  // tracks
+  cols.forEach(tk=>{
+    const T = TRACKS[tk];
+    h += `<div class="col"><div class="colhead"><div class="nm"><i class="dot" style="background:${T.c}"></i>${T.nm}</div><div class="loc">${T.loc}</div></div><div class="track" style="height:${H}px">`;
+    (d.clash||[]).forEach(c=>{
+      h += `<div class="clash" style="top:${(m(c.s)-t0)*PX}px;height:${(m(c.e)-m(c.s))*PX}px" title="${c.t}"></div>`;
+    });
+    d.ev.filter(e=>e.tk===tk).forEach(e=>{
+      const top=(m(e.s)-t0)*PX, ht=Math.max((m(e.e)-m(e.s))*PX-3, 34);
+      const flags=(e.fl||[]).map(f=>{
+        const cls = /要登録|LAB/.test(f)?'lab' : /WAITLIST/.test(f)?'wait' : /DEADLINE|締切/.test(f)?'due' : 'reg';
+        return `<span class="fl ${cls}">${f}</span>`;
+      }).join('');
+      const url = deepLink(e, T), src = e.src || (e.u ? T.src : T.src + ' ▸ 該当箇所');
+      h += `<div class="ev p${e.p}" style="top:${top}px;height:${ht}px;border-left-color:${T.c}">
+        <span class="star" style="color:${e.p===3?T.c:'var(--dim2)'}">${stars(e.p)}</span>
+        <span class="t">${e.s}–${e.e}</span>
+        <a class="ti evlink" href="${url}" target="_blank" rel="noopener">${e.ti}<span class="src" style="color:${T.c}">↗ ${src}</span></a>
+        ${e.who?`<div class="who">${e.who}</div>`:''}
+        ${flags?`<div class="flags">${flags}</div>`:''}
+      </div>`;
+    });
+    h += `</div></div>`;
+  });
+
+  h += `</div>`;
+
+  if((d.clash||[]).length){
+    h += `<div class="card" style="margin-top:20px"><h3>この日の衝突</h3><div class="when">どれを捨てるか先に決めておく</div><ul class="chk">`;
+    d.clash.forEach(c=>{ h+=`<li style="color:var(--warn)">${c.s}–${c.e} ／ ${c.t}</li>`; });
+    h += `</ul></div>`;
+  }
+  return h;
+}
+
+['d1','d2','d3','d4'].forEach(k=>{ document.getElementById('p-'+k).innerHTML = render(k); });
+
+const tabs=[...document.querySelectorAll('.tab')];
+tabs.forEach(b=>b.addEventListener('click',()=>{
+  tabs.forEach(x=>x.setAttribute('aria-selected', x===b));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+  document.getElementById('p-'+b.dataset.p).classList.add('on');
+  window.scrollTo({top:0,behavior:'smooth'});
+}));
+</script>
+</body>
+</html>
