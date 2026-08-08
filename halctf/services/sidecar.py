@@ -46,8 +46,9 @@ class SidecarClient:
                 # status 値・points_awarded・ブール系フィールドのいずれかで受理判定。
                 status = str(data.get("status", "")).lower()
                 points = data.get("points_awarded") or data.get("points") or 0
+                # already_solved は既に得点済み＝解決扱い（再提出で粘らない）。
                 accepted = (
-                    status in {"correct", "accepted", "solved", "success"}
+                    status in {"correct", "accepted", "solved", "success", "already_solved"}
                     or (isinstance(points, (int, float)) and points > 0)
                     or bool(
                         data.get("correct")

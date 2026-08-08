@@ -104,7 +104,9 @@ def run_real() -> int:
 
     solved = [o for o in outcomes if o.solved]
     print(f"solved {len(solved)}/{len(outcomes)}: {[o.challenge_id for o in solved]}", flush=True)
-    return 0 if solved else 1
+    # 正常完了は必ず exit 0。非ゼロだとプラットフォームがクラッシュ扱いで
+    # 再実行し、得点済みでも run が FAILED になる（得点は /submit で別途記録済み）。
+    return 0
 
 
 def main() -> int:
