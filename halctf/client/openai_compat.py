@@ -29,11 +29,14 @@ class OpenAICompatClient:
         api_key: str = "not-needed",  # sidecar が実キーを注入するため不要
         timeout_sec: float = 90.0,
         max_retries: int = 2,
+        pinned_model: str | None = None,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.models = models
         self.max_retries = max_retries
+        # プラットフォームが HAL_AGENT_MODEL で指定したモデル。あれば /models 検出を省く。
+        self.pinned_model = pinned_model
         self._available: set[str] | None = None
         self._resolved: str | None = None
         self._http = httpx.Client(
@@ -68,6 +71,10 @@ class OpenAICompatClient:
         CTF ごとにモデル名が違っても不一致にならないための解決。
         """
         if self._resolved:
+            return self._resolved
+        if self.pinned_model:
+            self._resolved = self.pinned_model
+            logger.info("使用モデル: %s（HAL_AGENT_MODEL 指定）", self._resolved)
             return self._resolved
         avail = self.available_models()
         chosen = ""

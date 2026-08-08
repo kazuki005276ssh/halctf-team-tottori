@@ -1,0 +1,8 @@
+[VERIFY] USER ID: faked-nomad-939
+[VERIFY] 2026-08-08 08:07:43,868 INFO halctf.runtime: env HAL_DRY_RUN=1
+[VERIFY] 2026-08-08 08:07:43,869 INFO halctf.runtime: env HAL_USER_ID=faked-nomad-939
+[VERIFY] 2026-08-08 08:07:43,880 ERROR halctf.runner: チャレンジ探索に失敗: [Errno 111] Connection refused
+[VERIFY] 2026-08-08 08:07:43,880 INFO halctf.runner: 探索: 全 0 問 / 未解決 0 問
+[VERIFY] 2026-08-08 08:07:43,881 WARNING halctf.sidecar: 完了通知に失敗: [Errno 111] Connection refused
+[VERIFY] solved 0/0: []
+[VERIFY] Dry-run verification completed.

@@ -94,9 +94,10 @@ def run_real() -> int:
     client = OpenAICompatClient(
         base_url=settings.openai_base_url,
         models=settings.models,
+        pinned_model=settings.agent_model,  # HAL_AGENT_MODEL があれば優先
         timeout_sec=settings.step_timeout_sec,
     )
-    mcp = McpChallengeService(settings.mcp_endpoint)
+    mcp = McpChallengeService(settings.mcp_endpoint, timeout_sec=15.0)
     sidecar = SidecarClient(settings.sidecar_url)
     runner = AgentRunner(client, mcp, sidecar, settings)
     outcomes = runner.run()

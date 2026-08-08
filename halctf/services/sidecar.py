@@ -29,29 +29,42 @@ class SidecarClient:
         )
 
     def submit(self, challenge_id: str, flag: str) -> tuple[bool, str]:
-        try:
-            resp = self._http.post(
-                "/submit", json={"challenge_id": challenge_id, "flag": flag}
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            # スキーマ未確定。よくある受理フィールドを緩く判定。
-            accepted = bool(
-                data.get("correct")
-                or data.get("accepted")
-                or data.get("success")
-                or data.get("solved")
-            )
-            return accepted, str(data.get("message", data))
-        except httpx.HTTPError as e:
-            logger.warning("フラグ提出に失敗: %s", e)
-            return False, f"submit error: {e}"
+        # orchestrator の解決が不安定なことがある（502/タイムアウト）ので数回リトライ。
+        last = ""
+        for attempt in range(3):
+            try:
+                resp = self._http.post(
+                    "/submit", json={"challenge_id": challenge_id, "flag": flag}
+                )
+                if resp.status_code >= 500:
+                    last = f"HTTP {resp.status_code}"
+                    logger.warning("提出が %s（attempt=%d）リトライ", last, attempt)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                # スキーマ未確定。よくある受理フィールドを緩く判定。
+                accepted = bool(
+                    data.get("correct")
+                    or data.get("accepted")
+                    or data.get("success")
+                    or data.get("solved")
+                )
+                return accepted, str(data.get("message", data))
+            except httpx.HTTPError as e:
+                last = str(e)
+                logger.warning("フラグ提出に失敗（attempt=%d）: %s", attempt, e)
+        return False, f"submit error: {last}"
 
     def done(self) -> None:
-        try:
-            self._http.post("/done", json={})
-        except httpx.HTTPError as e:
-            logger.warning("完了通知に失敗: %s", e)
+        for attempt in range(3):
+            try:
+                resp = self._http.post("/done", json={})
+                if resp.status_code >= 500:
+                    logger.warning("完了通知が HTTP %s（attempt=%d）", resp.status_code, attempt)
+                    continue
+                return
+            except httpx.HTTPError as e:
+                logger.warning("完了通知に失敗（attempt=%d）: %s", attempt, e)
 
     def close(self) -> None:
         self._http.close()

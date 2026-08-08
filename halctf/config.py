@@ -51,6 +51,24 @@ class Settings(BaseSettings):
         None, validation_alias=AliasChoices("BONUS_FLAG", "HALCTF_BONUS_FLAG")
     )
 
+    # --- 実行時にプラットフォームが渡すチャレンジ情報（env-first。MCP 探索より優先）---
+    # 各 run は 1 チャレンジにスコープされ、これらが注入される。
+    hal_challenge_id: str | None = Field(None, validation_alias=AliasChoices("HAL_CHALLENGE_ID"))
+    hal_challenge_name: str | None = Field(
+        None, validation_alias=AliasChoices("HAL_CHALLENGE_NAME")
+    )
+    hal_challenge_category: str | None = Field(
+        None, validation_alias=AliasChoices("HAL_CHALLENGE_CATEGORY")
+    )
+    hal_challenge_description: str | None = Field(
+        None, validation_alias=AliasChoices("HAL_CHALLENGE_DESCRIPTION")
+    )
+    hal_challenge_slug: str | None = Field(
+        None, validation_alias=AliasChoices("HAL_CHALLENGE_SLUG")
+    )
+    # 使用モデルもプラットフォームが指定する（あれば /models 検出より優先）
+    agent_model: str | None = Field(None, validation_alias=AliasChoices("HAL_AGENT_MODEL"))
+
     # --- モデル（提供モデルは CTF ごとに異なる。優先順＝小型→大型で並べる）---
     # 起動時に GET {OPENAI_BASE_URL}/models で実際に使えるものを自動検出し、
     # このチェーンのうち利用可能な先頭を選ぶ（提供一覧が違っても不一致にならない）。
