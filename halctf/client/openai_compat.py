@@ -34,6 +34,8 @@ class OpenAICompatClient:
         self.base_url = base_url.rstrip("/")
         self.models = models
         self.max_retries = max_retries
+        self._available: set[str] | None = None
+        self._resolved: str | None = None
         self._http = httpx.Client(
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {api_key}"},
@@ -43,6 +45,39 @@ class OpenAICompatClient:
 
     def close(self) -> None:
         self._http.close()
+
+    def available_models(self) -> set[str]:
+        """GET /models で提供モデル一覧を取得（OpenAI 互換）。失敗時は空集合。"""
+        if self._available is not None:
+            return self._available
+        try:
+            resp = self._http.get("/models")
+            resp.raise_for_status()
+            data = resp.json()
+            ids = {m.get("id") for m in data.get("data", []) if isinstance(m, dict)}
+            self._available = {i for i in ids if i}
+        except (httpx.HTTPError, ValueError, KeyError) as e:
+            logger.warning("/models 取得に失敗（チェーン先頭を使う）: %s", e)
+            self._available = set()
+        return self._available
+
+    def resolved_model(self) -> str:
+        """提供モデルのうち、優先チェーンで最初に使えるものを選ぶ。
+
+        提供一覧が取れないときはチェーン先頭。どれも一致しないときは一覧の先頭。
+        CTF ごとにモデル名が違っても不一致にならないための解決。
+        """
+        if self._resolved:
+            return self._resolved
+        avail = self.available_models()
+        chosen = ""
+        if avail:
+            chosen = next((m for m in self.models if m in avail), sorted(avail)[0])
+        elif self.models:
+            chosen = self.models[0]
+        self._resolved = chosen
+        logger.info("使用モデル: %s（提供: %s）", chosen, sorted(avail) or "unknown")
+        return chosen
 
     def __enter__(self) -> OpenAICompatClient:
         return self
@@ -59,8 +94,8 @@ class OpenAICompatClient:
         temperature: float = 0.2,
         **kwargs: Any,
     ) -> ChatResult:
-        """model 未指定なら models チェーンの先頭（最小モデル）を使う。"""
-        chosen = model or (self.models[0] if self.models else "")
+        """model 未指定なら提供モデルから自動解決（優先チェーン順）した1つを使う。"""
+        chosen = model or self.resolved_model()
         payload: dict[str, Any] = {
             "model": chosen,
             "messages": [m.to_openai() for m in messages],

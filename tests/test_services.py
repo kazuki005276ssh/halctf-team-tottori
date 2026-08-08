@@ -65,3 +65,36 @@ def test_mcp_get_challenge():
     svc = McpChallengeService("http://mcp", transport=httpx.MockTransport(_mcp_handler))
     c = svc.get_challenge("c1")
     assert c.id == "c1" and "FLAG_1" in c.description
+
+
+# ---- model auto-discovery (client) ----
+def test_client_resolves_available_model():
+    import httpx as _httpx
+
+    from halctf.client.openai_compat import OpenAICompatClient
+
+    def handler(request):
+        return _httpx.Response(200, json={"data": [
+            {"id": "llama-3.1-8b"}, {"id": "qwen3.6-35b-a3b"},
+        ]})
+
+    c = OpenAICompatClient(
+        "http://x", ["llama3-2", "qwen3.6-35b-a3b", "llama-3.1-8b"],
+        transport=_httpx.MockTransport(handler),
+    )
+    # llama3-2 は提供にないので、チェーン優先順で次に使える qwen3.6-35b-a3b を選ぶ
+    assert c.resolved_model() == "qwen3.6-35b-a3b"
+
+
+def test_client_falls_back_when_models_unavailable():
+    import httpx as _httpx
+
+    from halctf.client.openai_compat import OpenAICompatClient
+
+    def handler(request):
+        return _httpx.Response(500)
+
+    c = OpenAICompatClient(
+        "http://x", ["llama-3.1-8b"], transport=_httpx.MockTransport(handler)
+    )
+    assert c.resolved_model() == "llama-3.1-8b"

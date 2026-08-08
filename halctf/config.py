@@ -51,10 +51,10 @@ class Settings(BaseSettings):
         None, validation_alias=AliasChoices("BONUS_FLAG", "HALCTF_BONUS_FLAG")
     )
 
-    # --- モデル（実提供名。小型優先 → 難所で大コンテキストへフォールバック）---
-    # gce-gpu-cluster: llama3-2 / llama-3.1-8b / qwen3.6-35b-a3b（同時4枠）
-    # google: google/gemma-4-26b-a4b-it-maas（256K・同時無制限）
-    model_chain: str = "llama3-2,llama-3.1-8b,qwen3.6-35b-a3b,google/gemma-4-26b-a4b-it-maas"
+    # --- モデル（提供モデルは CTF ごとに異なる。優先順＝小型→大型で並べる）---
+    # 起動時に GET {OPENAI_BASE_URL}/models で実際に使えるものを自動検出し、
+    # このチェーンのうち利用可能な先頭を選ぶ（提供一覧が違っても不一致にならない）。
+    model_chain: str = "llama-3.1-8b,qwen3.6-35b-a3b,google/gemma-4-26b-a4b-it-maas,llama3-2"
 
     # --- フラグ形式（正規表現。web スクレイプ時の抽出用。env 直読み時は使わない）---
     flag_regex: str = r"[A-Za-z0-9_]{0,16}\{[^}]{1,256}\}"
