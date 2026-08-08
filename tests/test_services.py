@@ -98,3 +98,22 @@ def test_client_falls_back_when_models_unavailable():
         "http://x", ["llama-3.1-8b"], transport=_httpx.MockTransport(handler)
     )
     assert c.resolved_model() == "llama-3.1-8b"
+
+
+def test_sidecar_accepts_status_correct_shape():
+    # 実プラットフォーム応答 {"status":"correct","points_awarded":1} を受理と判定する
+    def handler(request):
+        return httpx.Response(200, json={"status": "correct", "points_awarded": 1})
+
+    c = SidecarClient(transport=httpx.MockTransport(handler))
+    ok, _ = c.submit("1", "flag{x}")
+    assert ok
+
+
+def test_sidecar_rejects_status_incorrect_shape():
+    def handler(request):
+        return httpx.Response(200, json={"status": "incorrect", "points_awarded": 0})
+
+    c = SidecarClient(transport=httpx.MockTransport(handler))
+    ok, _ = c.submit("1", "flag{x}")
+    assert not ok

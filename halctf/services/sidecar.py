@@ -42,12 +42,19 @@ class SidecarClient:
                     continue
                 resp.raise_for_status()
                 data = resp.json()
-                # スキーマ未確定。よくある受理フィールドを緩く判定。
-                accepted = bool(
-                    data.get("correct")
-                    or data.get("accepted")
-                    or data.get("success")
-                    or data.get("solved")
+                # 実応答: {"status":"correct","points_awarded":1}。
+                # status 値・points_awarded・ブール系フィールドのいずれかで受理判定。
+                status = str(data.get("status", "")).lower()
+                points = data.get("points_awarded") or data.get("points") or 0
+                accepted = (
+                    status in {"correct", "accepted", "solved", "success"}
+                    or (isinstance(points, (int, float)) and points > 0)
+                    or bool(
+                        data.get("correct")
+                        or data.get("accepted")
+                        or data.get("success")
+                        or data.get("solved")
+                    )
                 )
                 return accepted, str(data.get("message", data))
             except httpx.HTTPError as e:
@@ -56,15 +63,17 @@ class SidecarClient:
         return False, f"submit error: {last}"
 
     def done(self) -> None:
-        for attempt in range(3):
+        # /done は orchestrator 解決失敗で 502 になりがち（主催側の不安定）。
+        # 得点済みなので best-effort。短いタイムアウトで早々に諦めスロットを解放する。
+        for attempt in range(2):
             try:
-                resp = self._http.post("/done", json={})
+                resp = self._http.post("/done", json={}, timeout=5.0)
                 if resp.status_code >= 500:
-                    logger.warning("完了通知が HTTP %s（attempt=%d）", resp.status_code, attempt)
+                    logger.warning("完了通知 HTTP %s（attempt=%d, best-effort）", resp.status_code, attempt)
                     continue
                 return
             except httpx.HTTPError as e:
-                logger.warning("完了通知に失敗（attempt=%d）: %s", attempt, e)
+                logger.warning("完了通知に失敗（attempt=%d, best-effort）: %s", attempt, e)
 
     def close(self) -> None:
         self._http.close()
