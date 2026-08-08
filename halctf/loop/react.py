@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from halctf.client.base import ChatMessage, LLMClient
 from halctf.loop.state import RunState
 from halctf.tools.base import ToolContext, ToolRegistry
+from halctf.tools.flag_submit import extract_flag
 
 logger = logging.getLogger("halctf.loop")
 
@@ -116,7 +117,42 @@ class ReactAgent:
                     reason = "solved" if solved else "gave_up"
                     return self._finish(RunResult(solved, state.flag, state.step, reason))
 
+                # 自動抽出: ツール出力にフラグが現れたら、LLM の判断を待たず自動提出。
+                # 弱いモデルがフラグを見落としても、正しいページを取れれば得点できる。
+                if tc.name != "flag_submit":
+                    auto = self._maybe_auto_submit(state, obs)
+                    if auto is not None:
+                        return self._finish(auto)
+
         return self._finish(RunResult(False, state.flag, state.step, "max_steps"))
+
+    def _maybe_auto_submit(self, state: RunState, obs: str) -> RunResult | None:
+        """観測にフラグが現れたら自動提出する。受理されたら solved を返す。"""
+        submitter = self.ctx.submitter
+        if not obs or submitter is None or not self.ctx.challenge_id:
+            return None
+        pattern = getattr(self.ctx.settings, "flag_regex", r"flag\{[^}]{1,256}\}")
+        flag = extract_flag(obs, pattern)
+        if not flag or flag in state.submitted_flags:
+            return None
+        max_attempts = getattr(self.ctx.settings, "max_flag_attempts", 3)
+        if self.ctx.flag_attempts >= max_attempts:
+            return None
+        state.submitted_flags.add(flag)
+        self.ctx.flag_attempts += 1
+        accepted, msg = submitter.submit(self.ctx.challenge_id, flag)
+        logger.info("auto-extract 提出 %s -> %s (%s)", flag, accepted, msg)
+        if accepted:
+            state.flag = flag
+            return RunResult(True, flag, state.step, "auto-solved")
+        # 不正解ならフィードバックを入れて LLM に別を探させる。
+        state.add(
+            ChatMessage(
+                role="user",
+                content=f"自動提出したフラグ {flag} は不正解でした。別の値を探してください。",
+            )
+        )
+        return None
 
     def _finish(self, result: RunResult) -> RunResult:
         # completion signal を出して run を締める（単体利用時のみ）。

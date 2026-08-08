@@ -74,8 +74,9 @@ class Settings(BaseSettings):
     # このチェーンのうち利用可能な先頭を選ぶ（提供一覧が違っても不一致にならない）。
     model_chain: str = "llama-3.1-8b,qwen3.6-35b-a3b,google/gemma-4-26b-a4b-it-maas,llama3-2"
 
-    # --- フラグ形式（正規表現。web スクレイプ時の抽出用。env 直読み時は使わない）---
-    flag_regex: str = r"[A-Za-z0-9_]{0,16}\{[^}]{1,256}\}"
+    # --- フラグ形式（正規表現。web スクレイプ時の抽出/自動提出用）---
+    # 実物は flag{...}（例 flag{4b4a9c...}）。自動抽出の誤検出を避け厳密化。
+    flag_regex: str = r"flag\{[^}]{1,256}\}"
 
     # --- ループ / 実行制御 ---
     max_steps: int = 20

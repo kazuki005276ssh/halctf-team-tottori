@@ -28,7 +28,7 @@ SPEC = ToolSpec(
 
 def extract_flag(text: str, pattern: str) -> str | None:
     """テキストからフラグを抽出する。形式は env の正規表現で差し替え可能。"""
-    m = re.search(pattern, text)
+    m = re.search(pattern, text, re.IGNORECASE)
     return m.group(0) if m else None
 
 

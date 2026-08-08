@@ -1,4 +1,14 @@
-# ランタイム依存は最小限に絞る（イメージ 2.5GB 制約 / 推論は中央サービス）。
+# エージェント本体のランタイム依存（最小）。
 httpx>=0.27.0
 pydantic>=2.0.0
 pydantic-settings>=2.0.0
+
+# CTF 攻略ツールキット（run_python から使う）。
+# 全て wheel でインストールでき、system ビルド依存が要らないものに絞る
+# （build が速く・確実。イメージは 2560MB 上限に対し十分小さい）。
+pycryptodome>=3.20      # AES/RSA/ハッシュ等の暗号（crypto 系）
+pyjwt>=2.8              # JWT 生成・検証（Auth/JWT alg 混同）
+requests>=2.31         # run_python 内で楽に HTTP
+beautifulsoup4>=4.12    # HTML パース（web スクレイプ）
+lxml>=5.0              # XML/HTML（XXE ペイロード・解析）
+boto3>=1.34            # AWS API（Cloud/IAM: role assume 等）

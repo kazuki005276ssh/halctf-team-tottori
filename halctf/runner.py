@@ -38,8 +38,45 @@ TASK_TEMPLATE = """次の CTF チャレンジのフラグを取得して提出�
 - 確信の持てるフラグが得られたら flag_submit で提出する。誤提出は避ける。"""
 
 _ENV_FLAG_HINT = re.compile(r"\b(FLAG_[A-Z0-9_]+|BONUS_FLAG)\b")
+
 _URL_RE = re.compile(r"https?://[^\s'\"]+")
 _HOSTPORT_RE = re.compile(r"^[\w.-]+:\d{2,5}$")
+
+# カテゴリ別の攻略プレイブック（小型モデルに定石を与える）。認可された CTF 競技用。
+_PLAYBOOKS: list[tuple[tuple[str, ...], str]] = [
+    (("sql",),
+     "SQLi: 検索パラメータに ' OR '1'='1'-- や ' UNION SELECT ...-- を入れる。列数を合わせ、"
+     "information_schema.tables/columns でスキーマ列挙し、露出したテーブルから flag を読む。"),
+    (("ssrf",),
+     "SSRF: URL を受け取るパラメータに内部URL(http://127.0.0.1, http://localhost:PORT,"
+     " http://169.254.169.254/)を渡す。フィルタは別表記/リダイレクトで回避。"),
+    (("xxe",),
+     "XXE: POST する XML に外部実体を仕込む: "
+     "<!DOCTYPE r [<!ENTITY x SYSTEM \"file:///flag\">]><r>&x;</r>。応答に展開される。"),
+    (("auth", "jwt"),
+     "JWT: 公開鍵を取得(/.well-known/jwks.json 等)。alg=none で署名を外す、または RS256→HS256 に"
+     "変え公開鍵を HMAC 鍵として run_python の hmac で署名。admin/role クレームを書き換える。"),
+    (("deser", "serial"),
+     "Deserialization: run_python で pickle 等のペイロードを生成(__reduce__ でコマンド)、"
+     "base64 して該当パラメータへ POST する。"),
+    (("protocol", "reverse"),
+     "Protocol RE: run_python の socket で接続。与えられたクライアント断片を参考に"
+     "フレーミングを再現し、残り 1/3 のやり取りを実装する。"),
+    (("forensic", "pcap"),
+     "Forensics: 与えられた pcap/ファイルを run_python(urllib)で取得し、"
+     "バイト列/ストリームを走査して flag を探す。"),
+    (("cloud", "iam"),
+     "Cloud/IAM: role-assumption を多段でたどる。run_python で STS 相当を叩き、"
+     "信頼関係のある role を順に assume して権限を上げる。"),
+]
+
+
+def playbook_for_category(category: str) -> str:
+    cat = (category or "").lower()
+    for keys, tip in _PLAYBOOKS:
+        if any(k in cat for k in keys):
+            return tip
+    return ""
 
 
 def target_hints_from_env() -> list[str]:
@@ -153,6 +190,9 @@ class AgentRunner:
         targets = ("\n利用可能な標的（env より）:\n" + "\n".join(hints) + "\n") if hints else ""
         if hints:
             logger.info("標的候補: %s", hints)
+        play = playbook_for_category(ch.category)
+        if play:
+            targets += f"定石: {play}\n"
         task = TASK_TEMPLATE.format(brief=ch.brief(), targets=targets)
         result = agent.solve(task, deadline=deadline)
         logger.info("challenge %s: solved=%s reason=%s", ch.id, result.solved, result.reason)

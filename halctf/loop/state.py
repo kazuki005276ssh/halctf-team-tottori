@@ -19,6 +19,8 @@ class RunState:
     step: int = 0
     # 同一手の繰り返し検出用（tool 名 + 引数のハッシュ）
     action_signatures: list[str] = field(default_factory=list)
+    # 既に提出したフラグ（重複提出を避ける）
+    submitted_flags: set[str] = field(default_factory=set)
     flag: str | None = None
     done: bool = False
 
