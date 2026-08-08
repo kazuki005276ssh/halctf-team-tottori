@@ -15,8 +15,17 @@ GIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo nogit)
 TAG="halctf-agent:b${BUILD_NO}-${GIT_SHA}"
 TARBALL="${OUT_DIR}/halctf-b${BUILD_NO}-${GIT_SHA}.tar"
 
-echo "==> building ${TAG}"
-docker build -f packaging/Dockerfile -t "${TAG}" .
+# 主催クラスタ(gce-gpu-cluster)は linux/amd64。Mac(arm64)で普通にビルドすると
+# arm64 イメージになり向こうで動かないので、必ず amd64 を明示する。
+# provenance/sbom を切ると docker save の tarball が単一マニフェストで綺麗になる。
+echo "==> building ${TAG} (linux/amd64)"
+docker build --platform linux/amd64 --provenance=false --sbom=false \
+  -f packaging/Dockerfile -t "${TAG}" .
+
+echo "==> verify arch"
+ARCH=$(docker image inspect "${TAG}" --format '{{.Os}}/{{.Architecture}}')
+echo "    ${ARCH}"
+[ "${ARCH}" = "linux/amd64" ] || { echo "!! amd64 でない: ${ARCH}" >&2; exit 1; }
 
 echo "==> docker save -> ${TARBALL}"
 docker save "${TAG}" -o "${TARBALL}"
