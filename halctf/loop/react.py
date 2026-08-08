@@ -60,6 +60,8 @@ class ReactAgent:
         self.max_steps = max_steps
         self.run_budget_sec = run_budget_sec
         self.loop_repeat_threshold = loop_repeat_threshold
+        # 単体利用時は run 終了で完了通知を出す。runner 配下では runner が最後に出す。
+        self.emit_completion = True
 
     def solve(self, task_prompt: str, *, deadline: float | None = None) -> RunResult:
         state = RunState(system_prompt=SYSTEM_PROMPT, task_prompt=task_prompt)
@@ -113,11 +115,11 @@ class ReactAgent:
         return self._finish(RunResult(False, state.flag, state.step, "max_steps"))
 
     def _finish(self, result: RunResult) -> RunResult:
-        # completion signal を出して run を締める。
+        # completion signal を出して run を締める（単体利用時のみ）。
         submitter = self.ctx.submitter
-        if submitter is not None and hasattr(submitter, "complete"):
+        if self.emit_completion and submitter is not None and hasattr(submitter, "done"):
             try:
-                submitter.complete()
+                submitter.done()
             except Exception as e:  # 完了通知失敗で結果は変えない
                 logger.warning("完了通知に失敗: %s", e)
         logger.info(

@@ -1,0 +1,707 @@
+<title>HalCTF Agent — アーキテクチャ & 設計</title>
+<style>
+  :root {
+    --bg:#f5f7f5; --surface:#ffffff; --surface-2:#eef2ef;
+    --ink:#16201b; --ink-2:#48544d; --muted:#6b756e;
+    --border:#d3ddd6; --grid:#e4eae5;
+    --accent:#0f9a68; --accent-ink:#0b7a51;
+    --amber:#a9711a; --danger:#b1443a;
+    --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, "Cascadia Code", "Roboto Mono", monospace;
+    --measure: 68ch;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0c1310; --surface:#121a16; --surface-2:#18211d;
+      --ink:#dbe5de; --ink-2:#9daba3; --muted:#7b8a81;
+      --border:#25302b; --grid:#1b2521;
+      --accent:#3fbc86; --accent-ink:#5bd09c;
+      --amber:#d8a441; --danger:#e2746b;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg:#f5f7f5; --surface:#ffffff; --surface-2:#eef2ef;
+    --ink:#16201b; --ink-2:#48544d; --muted:#6b756e;
+    --border:#d3ddd6; --grid:#e4eae5;
+    --accent:#0f9a68; --accent-ink:#0b7a51; --amber:#a9711a; --danger:#b1443a;
+  }
+  :root[data-theme="dark"] {
+    --bg:#0c1310; --surface:#121a16; --surface-2:#18211d;
+    --ink:#dbe5de; --ink-2:#9daba3; --muted:#7b8a81;
+    --border:#25302b; --grid:#1b2521;
+    --accent:#3fbc86; --accent-ink:#5bd09c; --amber:#d8a441; --danger:#e2746b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:var(--font-sans); line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width: 1000px; margin:0 auto; padding: clamp(24px,5vw,72px) clamp(18px,4vw,40px) 96px; }
+
+  /* ---- header ---- */
+  header { border-bottom:1px solid var(--border); padding-bottom:36px; margin-bottom:44px; }
+  .eyebrow { font-family:var(--font-mono); font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+             color:var(--accent-ink); margin:0 0 14px; }
+  h1 { font-size:clamp(30px,5vw,46px); line-height:1.08; letter-spacing:-.02em; font-weight:700;
+       margin:0 0 16px; text-wrap:balance; }
+  .lede { font-size:clamp(16px,2.2vw,19px); color:var(--ink-2); max-width:var(--measure); margin:0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:26px; }
+  .chip { font-family:var(--font-mono); font-size:12px; padding:6px 11px; border-radius:999px;
+          background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2); white-space:nowrap; }
+  .chip strong { color:var(--accent-ink); font-weight:600; }
+
+  /* ---- sections ---- */
+  section { margin-top:64px; }
+  .sec-head { display:flex; align-items:baseline; gap:14px; margin-bottom:22px; }
+  .sec-num { font-family:var(--font-mono); font-size:13px; color:var(--accent-ink); letter-spacing:.06em; }
+  h2 { font-size:clamp(21px,3vw,27px); line-height:1.2; letter-spacing:-.01em; font-weight:650;
+       margin:0; text-wrap:balance; }
+  h3 { font-size:16px; margin:0 0 6px; font-weight:650; letter-spacing:-.005em; }
+  p { max-width:var(--measure); color:var(--ink-2); }
+  p strong, li strong { color:var(--ink); font-weight:640; }
+  .prose > * + * { margin-top:14px; }
+  code { font-family:var(--font-mono); font-size:.9em; background:var(--surface-2);
+         border:1px solid var(--border); border-radius:5px; padding:1px 6px; color:var(--ink); }
+
+  /* ---- figures ---- */
+  figure { margin:26px 0 8px; }
+  .diagram { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+             padding:22px; overflow-x:auto; }
+  .diagram svg { display:block; max-width:100%; height:auto; min-width:520px; margin:0 auto; }
+  .diagram text { font-family:var(--font-mono); fill:var(--ink); }
+  .d-t  { font-size:13px; }
+  .d-s  { font-size:11px; fill:var(--muted); }
+  .d-lbl{ font-size:11px; fill:var(--ink-2); }
+  .node { fill:var(--surface); stroke:var(--border); stroke-width:1.5; }
+  .node-2 { fill:var(--surface-2); stroke:var(--border); stroke-width:1.5; }
+  .ext  { fill:var(--surface-2); stroke:var(--ink-2); stroke-width:1.5; }
+  .boundary { fill:none; stroke:var(--ink-2); stroke-width:1.5; stroke-dasharray:6 5; opacity:.65; }
+  .flow { stroke:var(--ink-2); stroke-width:1.6; fill:none; }
+  .flow-a { stroke:var(--accent); stroke-width:2; fill:none; }
+  .flow-d { stroke:var(--ink-2); stroke-width:1.5; fill:none; stroke-dasharray:4 4; opacity:.8; }
+  .accent-node { fill:none; stroke:var(--accent); stroke-width:1.8; }
+  figcaption { font-size:13.5px; color:var(--muted); margin-top:12px; max-width:var(--measure);
+               font-family:var(--font-sans); }
+  figcaption b { color:var(--ink-2); font-weight:600; }
+
+  /* ---- cards ---- */
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin-top:8px; }
+  .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 18px 20px; }
+  .card .tag { font-family:var(--font-mono); font-size:11px; letter-spacing:.05em; color:var(--accent-ink);
+               text-transform:uppercase; display:block; margin-bottom:9px; }
+  .card p { font-size:14px; margin:0; color:var(--ink-2); }
+  .card ul { margin:8px 0 0; padding-left:17px; font-size:13.5px; color:var(--ink-2); }
+  .card li { margin:3px 0; }
+
+  /* ---- principles list ---- */
+  .principles { display:grid; gap:2px; margin-top:8px; border:1px solid var(--border);
+                border-radius:var(--radius); overflow:hidden; background:var(--border); }
+  .principle { background:var(--surface); padding:16px 18px; display:grid; grid-template-columns:150px 1fr; gap:16px; }
+  .principle .k { font-family:var(--font-mono); font-size:13px; color:var(--accent-ink); }
+  .principle .v { font-size:14px; color:var(--ink-2); margin:0; max-width:none; }
+  @media (max-width:620px){ .principle{ grid-template-columns:1fr; gap:5px; } }
+
+  /* ---- tree ---- */
+  pre.tree { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+             padding:20px; overflow-x:auto; font-family:var(--font-mono); font-size:13px; line-height:1.75;
+             color:var(--ink-2); }
+  pre.tree .dir { color:var(--accent-ink); }
+  pre.tree .cm { color:var(--muted); }
+
+  footer { margin-top:72px; padding-top:28px; border-top:1px solid var(--border);
+           font-size:13px; color:var(--muted); font-family:var(--font-mono); }
+
+  /* ---- concepts (glossary) ---- */
+  .concepts { display:grid; gap:14px; margin-top:10px; }
+  .concept { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+             padding:18px 20px; }
+  .concept > h3 { display:flex; align-items:baseline; gap:10px; margin:0 0 12px; font-size:16.5px; }
+  .concept > h3 .mono { font-family:var(--font-mono); font-size:12px; color:var(--muted); font-weight:400; }
+  .concept dl { margin:0; display:grid; grid-template-columns:88px 1fr; gap:7px 14px; }
+  .concept dt { font-family:var(--font-mono); font-size:12px; color:var(--accent-ink); padding-top:2px; }
+  .concept dd { margin:0; font-size:14.5px; color:var(--ink-2); }
+  .concept dd strong { color:var(--ink); font-weight:640; }
+  @media (max-width:560px){ .concept dl{ grid-template-columns:1fr; gap:2px 0; } .concept dt{ margin-top:8px; } }
+
+  /* ---- code blocks ---- */
+  pre.code { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+             padding:16px 18px; overflow-x:auto; font-family:var(--font-mono); font-size:12.5px;
+             line-height:1.65; color:var(--ink); margin:14px 0; }
+  pre.code .cm { color:var(--muted); }
+  pre.code .k  { color:var(--accent-ink); }
+  .codecap { font-family:var(--font-mono); font-size:11.5px; letter-spacing:.05em; text-transform:uppercase;
+             color:var(--muted); margin:18px 0 -4px; }
+
+  /* ---- flow table ---- */
+  table.flowtab { width:100%; border-collapse:collapse; margin-top:16px; font-size:14px; }
+  table.flowtab th, table.flowtab td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border);
+             vertical-align:top; color:var(--ink-2); }
+  table.flowtab th { font-family:var(--font-mono); font-size:11.5px; letter-spacing:.04em; text-transform:uppercase;
+             color:var(--muted); font-weight:500; }
+  table.flowtab td:first-child { font-family:var(--font-mono); font-size:12.5px; color:var(--accent-ink); white-space:nowrap; }
+  table.flowtab td strong { color:var(--ink); font-weight:640; }
+  .tablewrap { overflow-x:auto; }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">DEF CON 34 · AI Village · HalCTF</p>
+    <h1>自律ペンテストエージェント<br>アーキテクチャ &amp; 設計</h1>
+    <p class="lede">小型ローカルモデルを中央 Model Service 経由で使い、標的を <b>偵察 → 攻略 → フラグ提出</b> まで自走させる harness。層を分離し、未確定な API 仕様は環境変数とインターフェースの裏に閉じ込めてある。</p>
+    <div class="chips">
+      <span class="chip">状態: <strong>実仕様対応済み</strong></span>
+      <span class="chip">テスト <strong>27 件</strong> 緑</span>
+      <span class="chip">全通信 <strong>sidecar 127.0.0.1:9000</strong> 経由</span>
+      <span class="chip">推論 <strong>OPENAI_BASE_URL</strong> · 探索/提出 <strong>MCP</strong></span>
+      <span class="chip">tarball <strong>2560MB</strong> 上限</span>
+    </div>
+  </header>
+
+  <!-- 0a. これは何をするのか -->
+  <section>
+    <div class="sec-head"><span class="sec-num">00</span><h2>そもそも何をするのか</h2></div>
+    <div class="prose">
+      <p><b>「標的サーバを自分で攻略してフラグ（秘密の文字列）を盗むAIプログラム」を作る競技。</b>
+      人間は標的に一切触らない。人間が作るのは、攻略を自動でやる<strong>エージェント</strong>の方。
+      CTFプレイヤー（ハッカー）が手でやる動きを、まるごとプログラムにやらせ、その頭脳にLLMを使う。</p>
+    </div>
+    <div class="tablewrap">
+      <table class="flowtab">
+        <thead><tr><th>当日の流れ</th><th>具体的に何が起きるか</th></tr></thead>
+        <tbody>
+          <tr><td>1. 提出</td><td>エージェント一式を <strong>Docker イメージ</strong>に固めて主催にアップロード</td></tr>
+          <tr><td>2. 起動</td><td>主催の隔離環境（サンドボックス）でエージェントが動き出す</td></tr>
+          <tr><td>3. 攻略</td><td>自力で <strong>偵察 → 攻略 → フラグ発見</strong>（標的サーバに接続して弱点を突く）</td></tr>
+          <tr><td>4. 提出</td><td>見つけた <code>flag{…}</code> を<strong>提出API</strong>にPOST ＝ 得点</td></tr>
+          <tr><td>5. 完了</td><td><strong>完了通知</strong>を出す。数分でスコアとログが出る</td></tr>
+          <tr><td>6. 反復</td><td>ログを見て改善 → 再ビルド → 再投入を会期中に繰り返す</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose" style="margin-top:18px">
+      <p><b>なぜ難しく、何で勝つのか:</b> 使えるのは小さいオープンソースLLMだけで、
+      <strong>小さいモデルほど高得点</strong>。だから勝負は「賢いモデルを持ってくる」ことではなく
+      「そこそこのモデルを巧い土台（harness）で賢く動かす」こと。さらに<strong>速く解くほど高得点</strong>（decay）。</p>
+      <p><b>勝ち筋（リーダーボードの実況から）:</b> 上位は薄く、<strong>数問確実に解くだけでトップ10</strong>に入れる。
+      ただし <strong>「CAUGHT BY SOC」＝検知されると大幅減点</strong>（総当たり・騒がしい挙動は自滅、マイナス点も出る）。
+      → <strong>静かに・最小手数で・確実に取る</strong> agent が勝つ。この方針を runner とツールに組み込んである。</p>
+    </div>
+  </section>
+
+  <!-- 0b. 前提となる用語 -->
+  <section>
+    <div class="sec-head"><span class="sec-num">01</span><h2>前提となる用語（ゼロから）</h2></div>
+    <div class="prose"><p>各用語を「<b>一言 / なぜ必要 / このプロジェクトでは具体的に</b>」の3点で。</p></div>
+
+    <div class="concepts">
+      <div class="concept">
+        <h3>OCIコンテナ / Docker イメージ <span class="mono">packaging/</span></h3>
+        <dl>
+          <dt>一言</dt><dd>アプリと必要なもの一式（Python・ライブラリ・自分のコード）を<strong>丸ごと固めた「持ち運べる箱」</strong>。</dd>
+          <dt>なぜ</dt><dd>手元で動いたものを主催サーバでも<strong>寸分違わず同じに動かす</strong>ため。「自分の環境では動いた」を無くす。OCIはその箱の標準規格名（≒Dockerイメージ）。</dd>
+          <dt>具体</dt><dd><code>python:3.11-slim</code> に <code>halctf/</code> を入れ、<code>docker save</code> で <code>.tar</code> にして提出。モデル本体は入れない（推論は中央）ので2.5GBに軽く収まる。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>中央 Model Service / OpenAI互換API <span class="mono">client/</span></h3>
+        <dl>
+          <dt>一言</dt><dd>主催が用意した<strong>「LLMに質問を投げる窓口」</strong>（サーバ）。</dd>
+          <dt>なぜ</dt><dd>全員が各自GPUを持つのは無理。共通窓口にHTTPで質問して返事をもらう。<strong>手元にGPUもモデルも要らない</strong>。</dd>
+          <dt>具体</dt><dd><code>POST /chat/completions</code> にメッセージを送ると返事が返る。形がChatGPTのAPIと同じ（＝OpenAI互換）なので既存の作法が流用できる。使うモデルは <code>model</code> フィールドで指定。</dd>
+        </dl>
+        <p class="codecap">具体 — model query（LLMに一回質問する）</p>
+<pre class="code"><span class="cm">// リクエスト: エージェント → 中央 Model Service</span>
+POST /chat/completions
+{
+  <span class="k">"model"</span>: "Llama-3.2-3B",        <span class="cm">// 小型ほど高得点</span>
+  <span class="k">"messages"</span>: [
+    {"role":"system","content":"あなたはCTF攻略エージェント…"},
+    {"role":"user","content":"この標的のフラグを取って"}
+  ],
+  <span class="k">"tools"</span>: [ <span class="cm">/* 下の tool-calling で説明 */</span> ]
+}
+
+<span class="cm">// レスポンス: モデルの返事（文章ではなく「道具を呼びたい」指示）</span>
+{ "choices":[{ "message":{
+    "tool_calls":[{"function":{
+      "name":"recon", "arguments":"{\"target\":\"default\"}" }}]  <span class="cm">// ← 次の手</span>
+}}]}</pre>
+      </div>
+
+      <div class="concept">
+        <h3>LLMのツール呼び出し（tool-calling） <span class="mono">tools/</span></h3>
+        <dl>
+          <dt>一言</dt><dd>LLMに<strong>「使える道具のリスト」を渡すと、文章の代わりに『この道具をこの引数で呼んで』という機械が読める指示</strong>を返す仕組み。</dd>
+          <dt>なぜ</dt><dd>LLMは文章を作るだけで<strong>自分でHTTPを送れない</strong>。「recon を呼びたい」と言わせ、実際に実行するのはこちらのコード。結果を返す→次の手を言わせる、の繰り返し。</dd>
+          <dt>具体</dt><dd>実CTF用の道具は3つ: <code>read_env</code>（env のフラグ／Flag 1）・<code>http_get</code>（web 標的／Flag 2,3）・<code>flag_submit</code>（提出）。LLMが <code>flag_submit(flag="flag{…}")</code> を返したら、こちらが本当に sidecar /submit へ POST する。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>エージェント / harness <span class="mono">（リポジトリ全体）</span></h3>
+        <dl>
+          <dt>一言</dt><dd><strong>エージェント</strong>＝目的を与えると自分で考え行動を繰り返すプログラム。<strong>harness</strong>＝それを成り立たせる枠組み一式。</dd>
+          <dt>なぜ</dt><dd>作るのは「賢いモデル」ではなく、借り物モデルを<strong>手足（ツール）と頭の使い方（ループ）で賢く働かせる枠組み</strong>。</dd>
+          <dt>具体</dt><dd>このリポジトリ全体が harness。モデルは借り物、勝敗は harness の設計で決まる。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>決定ループ / ReAct <span class="mono">loop/react.py</span></h3>
+        <dl>
+          <dt>一言</dt><dd><strong>「観察→考える→動く→また観察」を繰り返す</strong>仕組み。ReAct（Reason+Act）はその代表型。</dd>
+          <dt>なぜ</dt><dd>CTFは一撃では解けない。<strong>偵察の結果を見てから次の手を決める</strong>を繰り返す。1回のLLM質問では足りない＝だからループする。</dd>
+          <dt>具体</dt><dd><code>while</code> ループで、1周＝「LLMに1回聞く」＋「ツールを1回実行」。最大20周（<code>max_steps</code>）。</dd>
+        </dl>
+        <p class="codecap">具体 — ループの心臓部（簡略）</p>
+<pre class="code">while step &lt; max_steps:
+    result = client.<span class="k">chat</span>(state.build_messages(), tools=specs)  <span class="cm"># ① LLMに聞く</span>
+    for tc in result.tool_calls:                    <span class="cm"># ② LLMが選んだ道具を</span>
+        obs = registry.get(tc.name).<span class="k">run</span>(tc.arguments, ctx)  <span class="cm"># ③ 実際に実行</span>
+        state.add(observation)                      <span class="cm"># ④ 結果を記録し次の周へ</span>
+        if obs.done: return solved                  <span class="cm"># フラグ受理で完了</span></pre>
+        <p style="font-size:13.5px;color:var(--ink-2);margin:8px 0 0">なぜループが要るか: <code>recon</code> の所見「path-traversal の気配」を<b>見てから</b> <code>exploit</code> の手法を決めるので、最低でも複数周が必要。</p>
+      </div>
+
+      <div class="concept">
+        <h3>フラグ / 提出 / 完了通知 <span class="mono">services/sidecar.py</span></h3>
+        <dl>
+          <dt>フラグ</dt><dd><code>flag{something_secret}</code> のような<strong>秘密の文字列</strong>。標的を攻略するとレスポンスやファイルから手に入る「攻略できた証拠」。</dd>
+          <dt>提出</dt><dd>sidecar に <code>POST /submit {challenge_id, flag}</code>（または MCP <code>submit_flag</code>）。これが<strong>得点行為</strong>。</dd>
+          <dt>完了通知</dt><dd><code>POST /done</code> で早期終了しキュー枠を解放。出さないとリソースを無駄に握る。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>sidecar / 実行アイデンティティ <span class="mono">127.0.0.1:9000</span></h3>
+        <dl>
+          <dt>一言</dt><dd>自分の Pod に同居する<strong>中継役（NGINX）</strong>。agent は外部と直接話さず全部これ経由。</dd>
+          <dt>なぜ</dt><dd>ネットワークを隔離しつつ、推論・提出・アイデンティティ注入を一点で担う。</dd>
+          <dt>具体</dt><dd>実行時に <code>OPENAI_BASE_URL</code>／<code>MCP_ENDPOINT</code>／<code>HAL_*</code> が env として<strong>注入</strong>される。我々は<strong>読むだけ</strong>（自分で <code>export</code> すると自分の agent を壊す）。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>MCP（Model Context Protocol）サーバ <span class="mono">services/mcp.py</span></h3>
+        <dl>
+          <dt>一言</dt><dd><strong>チャレンジ情報とフラグ提出</strong>の窓口。<code>MCP_ENDPOINT</code> にある。</dd>
+          <dt>なぜ</dt><dd>「どんな問題があるか／説明／提出／ヒント」を得る標準インターフェース。</dd>
+          <dt>具体</dt><dd>JSON-RPC の <code>tools/call</code> で <code>list_challenges</code> / <code>get_challenge</code> / <code>submit_flag</code> / <code>request_hint</code> 等を呼ぶ。ワイヤ形式は現地で要確認（1ファイルに閉じ込め済み）。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>起動要件（USER ID / heartbeat） <span class="mono">runtime.py</span></h3>
+        <dl>
+          <dt>USER ID</dt><dd>起動<strong>30秒以内</strong>に <code>USER ID: &lt;uid&gt;</code> を stdout 出力（本人確認の lint ゲート）。</dd>
+          <dt>heartbeat</dt><dd>stdout <strong>無音2分でハング扱い</strong>。定期出力し続ける。出力は必ず <code>flush</code>。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>検知回避（"CAUGHT BY SOC"） <span class="mono">runner.py</span></h3>
+        <dl>
+          <dt>一言</dt><dd>標的への騒がしい挙動・総当たり提出は<strong>検知され減点</strong>される（マイナス点も出る）。</dd>
+          <dt>具体</dt><dd>誤提出は上限（既定3）で打ち切り、標的アクセスは間隔を空け、<strong>易しい確実な問題から静かに</strong>取る。</dd>
+        </dl>
+      </div>
+
+      <div class="concept">
+        <h3>recon / exploit（偵察 / 攻略） <span class="mono">tools/recon.py · exploit.py</span></h3>
+        <dl>
+          <dt>recon</dt><dd>標的を<strong>調べる</strong>。どんなサーバか、どんなURL/ポートがあるか、怪しい入力欄はどこか。攻める前の下調べ。</dd>
+          <dt>exploit</dt><dd>見つけた弱点を<strong>実際に突く</strong>。</dd>
+        </dl>
+        <p class="codecap">具体 — Web標的の例（本プロジェクトのモックと同じシナリオ）</p>
+<pre class="code"><span class="cm"># recon: name パラメータでファイルを読めそう、と気づく</span>
+GET /files?name=readme        → 200 "This is the readme."
+
+<span class="cm"># exploit: パストラバーサルで本来読めないファイルを読む</span>
+GET /files?name=../../flag.txt → 200 "<span class="k">flag{path_traversal_win}</span>"   ← 発見！</pre>
+      </div>
+
+      <div class="concept">
+        <h3>小型モデル / モデル多段 <span class="mono">HALCTF_MODEL_CHAIN</span></h3>
+        <dl>
+          <dt>小型</dt><dd>パラメータが少ないLLM（3B〜7B等）。速く軽いが賢さは劣る。<strong>競技では小型ほど高得点</strong>なので、まず小型で挑む。</dd>
+          <dt>多段</dt><dd><strong>まず最小で挑戦し、詰まったら一段大きいモデルへ</strong>切替。<code>Llama-3.2-3B,Qwen3.5-4B,gpt-oss-120b</code> の左が最優先。</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2. 全体像 -->
+  <section>
+    <div class="sec-head"><span class="sec-num">02</span><h2>全体像 — 層 + 外部境界（すべて sidecar 経由）</h2></div>
+    <div class="prose">
+      <p>エージェントは「頭脳（決定ループ／runner）」「道具（ツール）」「外界との口（クライアント／services）」に分かれる。実仕様では <strong>agent は sidecar（127.0.0.1:9000）としか話さない</strong>。sidecar が推論・チャレンジ探索/提出・標的サブネットを振り分ける。<strong>外部依存はこの1点</strong>に集約され、すべて env で差し替えられる。</p>
+    </div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 760 420" role="img" aria-label="agentのループ・ツール・servicesが、すべてsidecar(127.0.0.1:9000)を経由してModel Service・標的サブネット・MCP/提出に振り分けられる構成図">
+          <defs>
+            <marker id="arwA" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+              <path d="M0,0 L6.5,3 L0,6 Z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- OCI container boundary -->
+          <rect class="boundary" x="20" y="70" width="372" height="316" rx="12"/>
+          <text class="d-s" x="30" y="60">OCIコンテナ / agent（Pod 内・外部は sidecar 経由のみ）</text>
+
+          <!-- env strip -->
+          <rect class="node-2" x="34" y="82" width="344" height="30" rx="6"/>
+          <text class="d-lbl" x="206" y="101" text-anchor="middle">config ・ 注入 env を「読むだけ」で差し替え</text>
+
+          <!-- loop (brain) -->
+          <rect class="node" x="34" y="140" width="112" height="222" rx="8"/>
+          <text class="d-t" x="90" y="235" text-anchor="middle">決定ループ</text>
+          <text class="d-t" x="90" y="253" text-anchor="middle">(ReAct)</text>
+          <text class="d-s" x="90" y="271" text-anchor="middle">+ runner</text>
+
+          <!-- middle column: client / tools / services -->
+          <rect class="node" x="182" y="140" width="176" height="62" rx="8"/>
+          <text class="d-t" x="270" y="167" text-anchor="middle">クライアント層</text>
+          <text class="d-s" x="270" y="185" text-anchor="middle">モデル多段切替</text>
+
+          <rect class="node" x="182" y="216" width="176" height="62" rx="8"/>
+          <text class="d-t" x="270" y="243" text-anchor="middle">ツール層</text>
+          <text class="d-s" x="270" y="261" text-anchor="middle">read_env · http_get · flag_submit</text>
+
+          <rect class="node" x="182" y="292" width="176" height="62" rx="8"/>
+          <text class="d-t" x="270" y="319" text-anchor="middle">services 層</text>
+          <text class="d-s" x="270" y="337" text-anchor="middle">MCP 探索 / 提出</text>
+
+          <!-- sidecar band -->
+          <rect class="node-2" x="440" y="130" width="70" height="236" rx="8"/>
+          <text class="d-t" x="475" y="238" text-anchor="middle" transform="rotate(-90 475 238)">sidecar 127.0.0.1:9000</text>
+
+          <!-- external services -->
+          <rect class="ext" x="540" y="140" width="200" height="58" rx="8"/>
+          <text class="d-t" x="640" y="165" text-anchor="middle">Model Service</text>
+          <text class="d-s" x="640" y="183" text-anchor="middle">/llm（OpenAI互換）</text>
+
+          <rect class="ext" x="540" y="212" width="200" height="58" rx="8"/>
+          <text class="d-t" x="640" y="237" text-anchor="middle">標的 Target</text>
+          <text class="d-s" x="640" y="255" text-anchor="middle">現CTFのサブネット</text>
+
+          <rect class="ext" x="540" y="284" width="200" height="58" rx="8"/>
+          <text class="d-t" x="640" y="305" text-anchor="middle">MCP /mcp · /submit · /done</text>
+          <text class="d-s" x="640" y="323" text-anchor="middle">探索 / 提出 / 完了</text>
+
+          <!-- loop drives client & tools & services -->
+          <path class="flow" d="M146,171 L182,171" marker-end="url(#arwA)"/>
+          <path class="flow" d="M146,247 L182,247" marker-end="url(#arwA)"/>
+          <path class="flow" d="M146,323 L182,323" marker-end="url(#arwA)"/>
+
+          <!-- inner boxes -> sidecar (accent) -->
+          <path class="flow-a" d="M358,171 L440,171" marker-end="url(#arwA)"/>
+          <text class="d-lbl" x="399" y="164" text-anchor="middle">model query</text>
+          <path class="flow-a" d="M358,247 L440,247" marker-end="url(#arwA)"/>
+          <text class="d-lbl" x="399" y="240" text-anchor="middle">http_get</text>
+          <path class="flow-a" d="M358,323 L440,323" marker-end="url(#arwA)"/>
+          <text class="d-lbl" x="399" y="316" text-anchor="middle">discover/submit</text>
+
+          <!-- sidecar -> external -->
+          <path class="flow-a" d="M510,169 L540,169" marker-end="url(#arwA)"/>
+          <path class="flow-a" d="M510,241 L540,241" marker-end="url(#arwA)"/>
+          <path class="flow-a" d="M510,313 L540,313" marker-end="url(#arwA)"/>
+        </svg>
+      </div>
+      <figcaption><b>agent は sidecar 一点としか話さない。</b> 推論・探索/提出・標的サブネットは sidecar が振り分ける。ネットワークは sidecar と現CTFサブネット以外に到達できない（外部インターネット無し）。</figcaption>
+    </figure>
+    <div class="tablewrap">
+      <table class="flowtab">
+        <thead><tr><th>用途</th><th>我々のコード</th><th>経路</th></tr></thead>
+        <tbody>
+          <tr><td>推論（次の手を聞く）</td><td>client/</td><td><code>OPENAI_BASE_URL</code> → sidecar /llm → Model Service</td></tr>
+          <tr><td>チャレンジ探索・ヒント</td><td>services/mcp.py</td><td><code>MCP_ENDPOINT</code> → sidecar /mcp</td></tr>
+          <tr><td>標的の偵察・攻略</td><td>tools/http_get.py</td><td>現CTFのサブネット（sidecar 経由）</td></tr>
+          <tr><td>フラグ提出・完了</td><td>services/sidecar.py</td><td><code>POST /submit</code> ・ <code>POST /done</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 2. 各層の責務 -->
+  <section>
+    <div class="sec-head"><span class="sec-num">03</span><h2>各層の責務</h2></div>
+    <div class="prose"><p>層を分けたのは、チームが並行作業でき、当日は層単位で差し替えられるようにするため。各層は隣の層のインターフェースだけを知っていて、実装の中身には依存しない。</p></div>
+    <div class="grid">
+      <div class="card">
+        <span class="tag">client/</span>
+        <h3>クライアント層</h3>
+        <p><code>OPENAI_BASE_URL</code> を OpenAI 互換で叩く（<code>api_key="not-needed"</code>）。小型優先→難所でフォールバックの<strong>モデル多段</strong>を <code>chat()</code> に隠蔽。</p>
+        <ul><li>リトライ / タイムアウト</li><li>Mock 実装で外部不要の検証</li></ul>
+      </div>
+      <div class="card">
+        <span class="tag">tools/</span>
+        <h3>ツール層</h3>
+        <p>LLM が選んで呼ぶ道具。誤選択を防ぐため<strong>3つに絞る</strong>（実CTF用 <code>web_registry</code>）。</p>
+        <ul><li>read_env — env のフラグ</li><li>http_get — web 偵察・攻略</li><li>flag_submit — 提出（誤提出上限で打切り）</li></ul>
+      </div>
+      <div class="card">
+        <span class="tag">loop/</span>
+        <h3>決定ループ層</h3>
+        <p>観測→思考→ツール選択→実行の ReAct。<strong>状態を外部保持</strong>し履歴を全部渡さない。ループ検出を担う。</p>
+      </div>
+      <div class="card">
+        <span class="tag">services/</span>
+        <h3>services 層</h3>
+        <p>プラットフォーム接点。<code>McpChallengeService</code>（探索）＋ <code>SidecarClient</code>（<code>/submit</code>・<code>/done</code>）＋ <code>MockPlatform</code> を差し替え。</p>
+      </div>
+      <div class="card">
+        <span class="tag">runtime · runner</span>
+        <h3>ランタイム / ランナー</h3>
+        <p><code>runtime.py</code>: USER ID 出力・heartbeat。<code>runner.py</code>: 起動→探索→各チャレンジ ReAct→<code>done</code> と<strong>検知回避</strong>の方針。</p>
+      </div>
+      <div class="card">
+        <span class="tag">config/ · packaging/</span>
+        <h3>設定 / パッケージング</h3>
+        <p>注入 env（無印優先）＋ローカル上書き（<code>HALCTF_</code>）。Dockerfile（<code>-u</code>）→ tarball（<strong>2560MB</strong> 検査）。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. ReAct loop -->
+  <section>
+    <div class="sec-head"><span class="sec-num">04</span><h2>決定ループ — ReAct と終了条件</h2></div>
+    <div class="prose"><p>1ターンごとに「状態を組む→LLM に推論させる→ツールを実行→観測を状態へ」を回す。小型モデル対策として、毎ターン全履歴は渡さず<strong>直近＋要約</strong>だけを渡す。4つの終了条件のいずれかで <strong>completion signal</strong> を出して run を締める。</p></div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 720 360" role="img" aria-label="状態構築・LLM推論・ツール実行・観測を状態へ、の4段を循環し、終了条件のいずれかで完了通知を出して終了するループ図">
+          <defs>
+            <marker id="arwB" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+              <path d="M0,0 L6.5,3 L0,6 Z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- cycle boxes -->
+          <rect class="node" x="24"  y="96" width="140" height="58" rx="8"/>
+          <text class="d-t" x="94" y="120" text-anchor="middle">状態を組む</text>
+          <text class="d-s" x="94" y="138" text-anchor="middle">直近 + 要約</text>
+
+          <rect class="node" x="204" y="96" width="140" height="58" rx="8"/>
+          <text class="d-t" x="274" y="120" text-anchor="middle">LLM 推論</text>
+          <text class="d-s" x="274" y="138" text-anchor="middle">ツール選択</text>
+
+          <rect class="node" x="384" y="96" width="140" height="58" rx="8"/>
+          <text class="d-t" x="454" y="126" text-anchor="middle">ツール実行</text>
+
+          <rect class="node" x="564" y="96" width="132" height="58" rx="8"/>
+          <text class="d-t" x="630" y="120" text-anchor="middle">観測を</text>
+          <text class="d-t" x="630" y="138" text-anchor="middle">状態へ</text>
+
+          <!-- forward arrows -->
+          <path class="flow" d="M164,125 L204,125" marker-end="url(#arwB)"/>
+          <path class="flow" d="M344,125 L384,125" marker-end="url(#arwB)"/>
+          <path class="flow" d="M524,125 L564,125" marker-end="url(#arwB)"/>
+          <!-- feedback arc -->
+          <path class="flow" d="M630,96 C630,44 94,44 94,96" marker-end="url(#arwB)"/>
+          <text class="d-lbl" x="362" y="38" text-anchor="middle">次ターン（状態は外部に保持）</text>
+
+          <!-- exit branch -->
+          <path class="flow-a" d="M454,154 L454,214" marker-end="url(#arwB)"/>
+          <text class="d-lbl" x="454" y="180" text-anchor="middle" transform="rotate(0)"></text>
+          <rect class="accent-node" x="230" y="214" width="260" height="46" rx="8"/>
+          <text class="d-t" x="360" y="234" text-anchor="middle" fill="var(--accent-ink)">completion signal</text>
+          <text class="d-s" x="360" y="251" text-anchor="middle">を出して run 終了</text>
+          <path class="flow-a" d="M454,214 L454,214"/>
+          <path class="flow-a" d="M490,237 L360,237" opacity="0"/>
+          <!-- link exit arrow to box -->
+          <path class="flow-a" d="M454,154 L454,214" marker-end="url(#arwB)"/>
+
+          <!-- exit conditions list -->
+          <text class="d-s" x="516" y="222">終了条件のいずれか:</text>
+          <text class="d-s" x="516" y="240">· flag 受理 → 解決</text>
+          <text class="d-s" x="516" y="256">· ツール無し → 手詰まり</text>
+          <text class="d-s" x="516" y="272">· 同一手×3 → ループ検出</text>
+          <text class="d-s" x="516" y="288">· step上限 / 予算超過</text>
+        </svg>
+      </div>
+      <figcaption>フラグ受理だけでなく、<b>手詰まり・ループ・予算超過</b>も明示的に締める。無駄な手数を垂れ流さない（decay scoring 下では手数＝時間＝失点）。</figcaption>
+    </figure>
+  </section>
+
+  <!-- 4. run sequence -->
+  <section>
+    <div class="sec-head"><span class="sec-num">05</span><h2>1 run のシーケンス — モックで実測</h2></div>
+    <div class="prose"><p>モック標的で実際に走らせた流れ。エージェントの手数は <code>recon → exploit → flag_submit</code> の<strong>3手</strong>。偵察の所見から攻略手法を選び、応答からフラグを抽出して提出、最後に完了通知を出す。</p></div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 720 452" role="img" aria-label="Agent・Tools・Target・提出APIの4レーンで、recon→exploit→flag_submit→completionと進み解決に至るシーケンス図">
+          <defs>
+            <marker id="arwC" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+              <path d="M0,0 L6.5,3 L0,6 Z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- lane heads -->
+          <rect class="node" x="24"  y="20" width="120" height="38" rx="7"/>
+          <text class="d-t" x="84" y="44" text-anchor="middle">Agent (loop)</text>
+          <rect class="node" x="230" y="20" width="120" height="38" rx="7"/>
+          <text class="d-t" x="290" y="44" text-anchor="middle">Tools</text>
+          <rect class="ext"  x="436" y="20" width="120" height="38" rx="7"/>
+          <text class="d-t" x="496" y="44" text-anchor="middle">Target</text>
+          <rect class="ext"  x="600" y="20" width="104" height="38" rx="7"/>
+          <text class="d-t" x="652" y="44" text-anchor="middle">提出 API</text>
+
+          <!-- lifelines -->
+          <line x1="84"  y1="58" x2="84"  y2="430" class="flow-d"/>
+          <line x1="290" y1="58" x2="290" y2="430" class="flow-d"/>
+          <line x1="496" y1="58" x2="496" y2="430" class="flow-d"/>
+          <line x1="652" y1="58" x2="652" y2="430" class="flow-d"/>
+
+          <!-- messages -->
+          <path class="flow" d="M84,88 L290,88" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="90" y="82">① recon()</text>
+
+          <path class="flow" d="M290,116 L496,116" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="110">probe</text>
+          <path class="flow-d" d="M496,140 L290,140" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="134">所見: path-traversal 疑い</text>
+
+          <path class="flow" d="M84,172 L290,172" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="90" y="166">② exploit(path-traversal)</text>
+
+          <path class="flow" d="M290,200 L496,200" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="194">attack</text>
+          <path class="flow-a" d="M496,224 L290,224" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="218" fill="var(--accent-ink)">本文に flag{…}</text>
+
+          <path class="flow" d="M84,256 L290,256" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="90" y="250">③ flag_submit(flag)</text>
+
+          <path class="flow" d="M290,284 L652,284" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="278">POST /submit</text>
+          <path class="flow-a" d="M652,308 L290,308" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="296" y="302" fill="var(--accent-ink)">accepted</text>
+
+          <path class="flow-a" d="M84,344 L652,344" marker-end="url(#arwC)"/>
+          <text class="d-lbl" x="90" y="338" fill="var(--accent-ink)">completion signal</text>
+
+          <!-- result -->
+          <rect class="accent-node" x="24" y="378" width="360" height="40" rx="8"/>
+          <text class="d-t" x="204" y="403" text-anchor="middle" fill="var(--accent-ink)">solved = True ・ エージェント手数 3</text>
+        </svg>
+      </div>
+      <figcaption>点線＝戻り値。<b>偵察の所見が次の手を決める</b>のがキモ（決め打ちではなく観測駆動）。実標的では Tools→Target の口が HTTP/シェルに替わるだけで、レーン構造は変わらない。</figcaption>
+    </figure>
+  </section>
+
+  <!-- 5. abstraction boundary -->
+  <section>
+    <div class="sec-head"><span class="sec-num">06</span><h2>未確定を止めなかった抽象化（確定後の結線）</h2></div>
+    <div class="prose"><p>ループとツールは<strong>インターフェースにしか依存せず</strong>、実装が本物かモックかを知らない。だから仕様確定<em>前</em>も Mock で開発でき、<strong>確定後は実装を差し込むだけ</strong>で済んだ。切替は env（<code>HALCTF_USE_MOCK</code>）一発。</p></div>
+
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 720 366" role="img" aria-label="決定ループが3つのインターフェースにのみ依存し、左のMock実装と右の実API実装を env で差し替えられることを示す図">
+          <defs>
+            <marker id="arwD" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto">
+              <path d="M0,0 L6.5,3 L0,6 Z" fill="context-stroke"/>
+            </marker>
+          </defs>
+
+          <!-- loop -->
+          <rect class="node" x="264" y="16" width="192" height="50" rx="8"/>
+          <text class="d-t" x="360" y="38" text-anchor="middle">決定ループ (ReAct)</text>
+          <text class="d-s" x="360" y="55" text-anchor="middle">インターフェースにのみ依存</text>
+
+          <!-- interfaces (center) -->
+          <rect class="node-2" x="276" y="120" width="168" height="44" rx="7"/>
+          <text class="d-t" x="360" y="147" text-anchor="middle">LLMClient</text>
+          <rect class="node-2" x="276" y="184" width="168" height="44" rx="7"/>
+          <text class="d-t" x="360" y="211" text-anchor="middle">ChallengeService</text>
+          <rect class="node-2" x="276" y="248" width="168" height="44" rx="7"/>
+          <text class="d-t" x="360" y="275" text-anchor="middle">Submitter</text>
+
+          <!-- loop depends on interfaces -->
+          <path class="flow" d="M360,66 L360,120" marker-end="url(#arwD)"/>
+          <text class="d-lbl" x="372" y="98">依存</text>
+
+          <!-- left: mock -->
+          <rect class="accent-node" x="20" y="104" width="196" height="204" rx="10" opacity=".9"/>
+          <text class="d-s" x="118" y="124" text-anchor="middle" fill="var(--accent-ink)">ローカル検証 — 今すぐ動く</text>
+          <rect class="node" x="36" y="132" width="164" height="34" rx="6"/>
+          <text class="d-t" x="118" y="154" text-anchor="middle">MockClient</text>
+          <rect class="node" x="36" y="196" width="164" height="34" rx="6"/>
+          <text class="d-t" x="118" y="218" text-anchor="middle">MockPlatform</text>
+          <rect class="node" x="36" y="260" width="164" height="34" rx="6"/>
+          <text class="d-t" x="118" y="282" text-anchor="middle">MockPlatform</text>
+          <path class="flow-d" d="M200,149 L276,142" marker-end="url(#arwD)"/>
+          <path class="flow-d" d="M200,213 L276,206" marker-end="url(#arwD)"/>
+          <path class="flow-d" d="M200,277 L276,270" marker-end="url(#arwD)"/>
+
+          <!-- right: real -->
+          <rect class="boundary" x="504" y="104" width="200" height="204" rx="10"/>
+          <text class="d-s" x="604" y="124" text-anchor="middle">本番 — 確定済み・結線済み</text>
+          <rect class="node" x="520" y="132" width="168" height="34" rx="6"/>
+          <text class="d-t" x="604" y="154" text-anchor="middle">OpenAICompatClient</text>
+          <rect class="node" x="520" y="196" width="168" height="34" rx="6"/>
+          <text class="d-t" x="604" y="218" text-anchor="middle">McpChallengeService</text>
+          <rect class="node" x="520" y="260" width="168" height="34" rx="6"/>
+          <text class="d-t" x="604" y="281" text-anchor="middle">SidecarClient</text>
+          <path class="flow-d" d="M520,149 L444,142" marker-end="url(#arwD)"/>
+          <path class="flow-d" d="M520,213 L444,206" marker-end="url(#arwD)"/>
+          <path class="flow-d" d="M520,277 L444,270" marker-end="url(#arwD)"/>
+
+          <!-- env switch -->
+          <text class="d-s" x="360" y="330" text-anchor="middle">env で選択: HALCTF_USE_MOCK / OPENAI_BASE_URL / MCP_ENDPOINT …</text>
+        </svg>
+      </div>
+      <figcaption>点線＝「そのインターフェースを満たす」。<b>左右どちらを挿しても中央とループは同一。</b> だから仕様待ちで手が止まらず、確定した瞬間に本番結線へ移れる。</figcaption>
+    </figure>
+  </section>
+
+  <!-- 6. design principles -->
+  <section>
+    <div class="sec-head"><span class="sec-num">07</span><h2>小型モデル最適化の設計判断</h2></div>
+    <div class="prose"><p>「小さいモデルほど高得点／速さ＝得点」という競技の核に合わせた設計判断。それぞれが具体的なコードに落ちている。</p></div>
+    <div class="principles">
+      <div class="principle"><div class="k">モデル多段</div><p class="v">小型優先で通し、難所だけ中型へフォールバック。<code>HALCTF_MODEL_CHAIN</code> の左が最優先。加点式が確定したら切替閾値に反映する。</p></div>
+      <div class="principle"><div class="k">コンテキスト圧縮</div><p class="v">小型モデルは長文脈に弱い。状態を外部保持し、履歴が伸びたら古い部分を<strong>ローカル要約</strong>に畳んで直近だけ生で渡す（<code>state.build_messages</code>）。</p></div>
+      <div class="principle"><div class="k">ツールを絞る</div><p class="v">選択ミスを減らすため MVP は 3 ツールだけ。説明文は短く明快に。shell 等は制約確定後に足す。</p></div>
+      <div class="principle"><div class="k">ループ検出</div><p class="v">同一の手（ツール名＋引数）が連続したら打ち切る。同じ手を繰り返してトークンと時間を浪費しない。</p></div>
+      <div class="principle"><div class="k">誤提出の抑止</div><p class="v">提出前にフラグ正規表現で検証。誤ったフラグ提出でスコアや試行を浪費しない。</p></div>
+      <div class="principle"><div class="k">環境非依存</div><p class="v">エンドポイント・モデル・フラグ形式は全て env。提出方式や環境が変わっても<strong>同じコードで動く</strong>。</p></div>
+    </div>
+  </section>
+
+  <!-- 7. repo -->
+  <section>
+    <div class="sec-head"><span class="sec-num">08</span><h2>リポジトリ構成と動かし方</h2></div>
+<pre class="tree"><span class="dir">halctf/</span>
+├─ config.py          <span class="cm"># 注入 env（無印優先）+ ローカル上書き（HALCTF_）</span>
+├─ runtime.py         <span class="cm"># USER ID 出力 + heartbeat</span>
+├─ runner.py          <span class="cm"># 起動→探索→各チャレンジ ReAct→done + 検知回避</span>
+├─ <span class="dir">client/</span>            <span class="cm"># OPENAI_BASE_URL への口（base/openai_compat/mock）</span>
+├─ <span class="dir">tools/</span>             <span class="cm"># read_env / http_get / flag_submit（実）, recon/exploit（demo）</span>
+├─ <span class="dir">loop/</span>              <span class="cm"># react.py（ReAct）+ state.py（圧縮）</span>
+├─ <span class="dir">services/</span>          <span class="cm"># mcp.py（探索）+ sidecar.py（/submit,/done）+ mock.py + base.py</span>
+└─ cli.py             <span class="cm"># --demo / --smoke / 実行</span>
+<span class="dir">spec/</span>      <span class="cm"># API 仕様メモ（実仕様で更新）</span>
+<span class="dir">packaging/</span> <span class="cm"># Dockerfile（-u）+ build.sh（save→tarball, 2560MB検査）</span>
+<span class="dir">examples/</span>  <span class="cm"># mock_target.py（ローカル検証用の標的）</span>
+<span class="dir">tests/</span>     <span class="cm"># config / services / tools / loop / runner / state（27件）</span>
+
+<span class="cm"># 動かす</span>
+make dev      <span class="cm"># 依存インストール</span>
+make test     <span class="cm"># 27 件のテスト</span>
+make demo     <span class="cm"># モックで 1 問を自力で解く → solved: True</span>
+python3 -m halctf.cli --smoke   <span class="cm"># 実サービスへの提出パイプライン疎通確認</span>
+make build    <span class="cm"># OCI イメージ → tarball</span></pre>
+    <div class="prose" style="margin-top:20px">
+      <p><strong>現地での確認事項:</strong> ①USER ID の正確な <code>HAL_*</code> キー名（起動ログで確認）②MCP のワイヤ形式と <code>/submit</code> スキーマ（<code>--smoke</code> で確認）③BONUS_FLAG の対象チャレンジ。いずれもズレたら <code>services/mcp.py</code>・<code>sidecar.py</code>・<code>config.py</code> の局所修正で済む。<br><strong>勝ち筋:</strong> STARTER でパイプライン疎通 → Pantheon/Turing の易しい web を<strong>静かに確実に</strong>farm → 高配点に一撃。</p>
+    </div>
+  </section>
+
+  <footer>HalCTF Agent · 実仕様対応済み · DEF CON 34 / AI Village · 内部設計ドキュメント</footer>
+</div>

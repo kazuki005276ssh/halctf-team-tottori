@@ -1,7 +1,8 @@
-"""flag_submit ツール: 取得したフラグを標準 API で提出する。
+"""flag_submit ツール: 取得したフラグを現在のチャレンジに提出する。
 
-提出の実体は submit 層（Submitter）に委譲。ここは LLM から呼ばれる
-インターフェースと、提出結果を制御シグナルへ変換する役割に徹する。
+提出は submitter.submit(challenge_id, flag) に委譲（sidecar /submit か MCP）。
+検知回避（"CAUGHT BY SOC" 対策）として、誤提出が上限に達したら深追いせず
+このチャレンジを打ち切る合図を返す。
 """
 
 from __future__ import annotations
@@ -14,11 +15,11 @@ from halctf.tools.base import Tool, ToolContext, ToolResult
 
 SPEC = ToolSpec(
     name="flag_submit",
-    description="発見したフラグを提出する。フラグ文字列が確定したら必ず呼ぶ。",
+    description="発見したフラグを提出する。確信が持てるフラグが得られたときだけ呼ぶ（誤提出は避ける）。",
     parameters={
         "type": "object",
         "properties": {
-            "flag": {"type": "string", "description": "提出するフラグ文字列（例: flag{...}）。"},
+            "flag": {"type": "string", "description": "提出するフラグ文字列。"},
         },
         "required": ["flag"],
     },
@@ -36,25 +37,28 @@ def _run(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if not flag:
         return ToolResult(ok=False, output="flag が空です。")
 
-    # 念のためフラグ形式を検証（誤提出でスコアを浪費しない）。
-    default_pattern = r"flag\{[^}]+\}"
-    pattern = default_pattern
-    if ctx.settings is not None:
-        pattern = getattr(ctx.settings, "flag_regex", default_pattern)
-    normalized = extract_flag(flag, pattern) or flag
-
     if ctx.submitter is None:
         return ToolResult(ok=False, output="提出クライアントが未設定です。")
 
-    accepted, message = ctx.submitter.submit(normalized)
+    max_attempts = getattr(ctx.settings, "max_flag_attempts", 3) if ctx.settings else 3
+    if ctx.flag_attempts >= max_attempts:
+        return ToolResult(
+            ok=False,
+            output="誤提出が上限に達しました。総当たりは検知されるため、このチャレンジは打ち切ります。",
+            done=True,
+        )
+
+    challenge_id = ctx.challenge_id or ""
+    ctx.flag_attempts += 1
+    accepted, message = ctx.submitter.submit(challenge_id, flag)
     if accepted:
         return ToolResult(
             ok=True,
-            output=f"フラグが受理されました: {normalized}",
-            flag_captured=normalized,
+            output=f"フラグが受理されました: {flag}",
+            flag_captured=flag,
             done=True,
         )
-    return ToolResult(ok=False, output=f"フラグが拒否されました: {message}")
+    return ToolResult(ok=False, output=f"フラグが拒否されました（{message}）。別の手を検討する。")
 
 
 TOOL = Tool(SPEC, _run)

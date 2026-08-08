@@ -40,6 +40,11 @@ class MockClient:
         if flag and "flag_submit" in tool_names and not self._already_submitted(messages):
             return self._call("flag_submit", {"flag": flag}, "フラグを検出したので提出する")
 
+        # 環境変数フラグ型（read_env が使える）なら env を読む。
+        if "read_env" in tool_names and not self._used(messages, "read_env"):
+            name = self._env_name(messages) or "FLAG_1"
+            return self._call("read_env", {"name": name}, f"環境変数 {name} を読む")
+
         # まだ recon していなければ偵察する。
         if "recon" in tool_names and not self._used(messages, "recon"):
             return self._call("recon", {"target": "default"}, "まず標的を偵察する")
@@ -73,6 +78,16 @@ class MockClient:
     @staticmethod
     def _already_submitted(messages: list[ChatMessage]) -> bool:
         return MockClient._used(messages, "flag_submit")
+
+    @staticmethod
+    def _env_name(messages: list[ChatMessage]) -> str | None:
+        pat = re.compile(r"\b(FLAG_\d+|BONUS_FLAG|[A-Z][A-Z0-9_]{2,}FLAG)\b")
+        for m in messages:
+            if m.content:
+                found = pat.search(m.content)
+                if found:
+                    return found.group(1)
+        return None
 
     @staticmethod
     def _suggested_technique(messages: list[ChatMessage]) -> str | None:

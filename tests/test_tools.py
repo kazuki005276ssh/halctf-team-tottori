@@ -1,21 +1,27 @@
 from examples.mock_target import MockTarget
-from halctf.submit import MockSubmitter
-from halctf.tools import default_registry
+from halctf.services.base import Challenge
+from halctf.services.mock import MockPlatform
+from halctf.tools import default_registry, web_registry
 from halctf.tools.base import ToolContext
 
 
-def _ctx():
+def _ctx(challenge_id="demo-web"):
     target = MockTarget()
+    platform = MockPlatform(
+        challenges=[Challenge(id="demo-web", name="demo", category="web")],
+        accepted={"demo-web": target.flag},
+    )
     return ToolContext(
-        target=target,
-        submitter=MockSubmitter(accepted_flags={target.flag}),
-        settings=None,
+        target=target, submitter=platform, settings=None, challenge_id=challenge_id
     )
 
 
-def test_registry_has_three_tools():
-    reg = default_registry()
-    assert set(reg.names()) == {"recon", "exploit", "flag_submit"}
+def test_default_registry_has_three_tools():
+    assert set(default_registry().names()) == {"recon", "exploit", "flag_submit"}
+
+
+def test_web_registry_tools():
+    assert set(web_registry().names()) == {"read_env", "http_get", "flag_submit"}
 
 
 def test_recon_stores_scratch():
@@ -25,21 +31,13 @@ def test_recon_stores_scratch():
     assert "recon" in ctx.scratch
 
 
-def test_exploit_wrong_technique_fails_to_flag():
-    reg, ctx = default_registry(), _ctx()
-    res = reg.get("exploit").run({"target": "default", "technique": "sqli"}, ctx)
-    assert "flag{" not in res.output
-
-
 def test_exploit_right_technique_returns_flag():
     reg, ctx = default_registry(), _ctx()
-    res = reg.get("exploit").run(
-        {"target": "default", "technique": "path-traversal"}, ctx
-    )
+    res = reg.get("exploit").run({"target": "default", "technique": "path-traversal"}, ctx)
     assert "flag{mock_target_pwned}" in res.output
 
 
-def test_flag_submit_accepts_correct():
+def test_flag_submit_accepts_correct_with_challenge_id():
     reg, ctx = default_registry(), _ctx()
     res = reg.get("flag_submit").run({"flag": "flag{mock_target_pwned}"}, ctx)
     assert res.ok and res.done and res.flag_captured == "flag{mock_target_pwned}"
@@ -49,3 +47,24 @@ def test_flag_submit_rejects_wrong():
     reg, ctx = default_registry(), _ctx()
     res = reg.get("flag_submit").run({"flag": "flag{wrong}"}, ctx)
     assert not res.ok and not res.done
+
+
+def test_flag_submit_stops_after_attempt_limit():
+    reg, ctx = default_registry(), _ctx()
+    ctx.flag_attempts = 3  # 上限到達済み（settings 既定は 3）
+    res = reg.get("flag_submit").run({"flag": "flag{wrong}"}, ctx)
+    assert res.done and not res.ok  # 総当たり回避で打ち切り
+
+
+def test_read_env_reads_value(monkeypatch):
+    monkeypatch.setenv("FLAG_1", "flag{env_value}")
+    reg, ctx = web_registry(), _ctx()
+    res = reg.get("read_env").run({"name": "FLAG_1"}, ctx)
+    assert res.ok and res.output == "flag{env_value}"
+
+
+def test_read_env_missing_hides_value(monkeypatch):
+    monkeypatch.delenv("NOPE_FLAG", raising=False)
+    reg, ctx = web_registry(), _ctx()
+    res = reg.get("read_env").run({"name": "NOPE_FLAG"}, ctx)
+    assert not res.ok

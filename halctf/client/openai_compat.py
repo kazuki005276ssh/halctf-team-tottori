@@ -24,11 +24,12 @@ class OpenAICompatClient:
     def __init__(
         self,
         base_url: str,
-        api_key: str,
         models: list[str],
         *,
-        timeout_sec: float = 60.0,
+        api_key: str = "not-needed",  # sidecar が実キーを注入するため不要
+        timeout_sec: float = 90.0,
         max_retries: int = 2,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.models = models
@@ -37,6 +38,7 @@ class OpenAICompatClient:
             base_url=self.base_url,
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=timeout_sec,
+            transport=transport,
         )
 
     def close(self) -> None:

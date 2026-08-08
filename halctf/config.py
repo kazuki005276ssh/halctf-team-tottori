@@ -1,12 +1,19 @@
 """環境変数駆動の設定。
 
-設計原則（ブリーフ §6「環境非依存」）:
-  API エンドポイント・使用モデル・フラグ形式はすべて env で差し替える。
-  提出方法や環境が変わっても同じコードで動くようにする。
+HalCTF プラットフォームは実行時（detonation）に以下を**注入する**。我々は読むだけ:
+  - OPENAI_BASE_URL : OpenAI 互換の推論エンドポイント（sidecar が中継）
+  - MCP_ENDPOINT    : チャレンジ探索 / フラグ提出の MCP サーバ
+  - HAL_*           : 実行アイデンティティ（USER ID など）
+  - BONUS_FLAG      : 提出パイプラインのスモークテスト用フラグ
+sidecar は 127.0.0.1:9000 で全てを中継する（/submit・/done もここ）。
+
+ローカル検証用に、同名の HALCTF_ 付き変数でも上書きできるようにしてある
+（実行時は無印の OPENAI_BASE_URL 等が最優先）。
 """
 
 from __future__ import annotations
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,28 +23,55 @@ class Settings(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
+        protected_namespaces=(),  # model_* フィールド名の警告を抑止
     )
 
-    # --- 中央 Model Service（OpenAI 互換）---
-    model_base_url: str = "http://localhost:8000/v1"
-    model_api_key: str = "changeme"
-    # 小型優先 → 難所フォールバックの多段。左が最優先。
-    model_chain: str = "Llama-3.2-3B,Qwen3.5-4B,gpt-oss-120b"
+    # --- プラットフォーム注入（無印が最優先、ローカルは HALCTF_ で上書き可）---
+    openai_base_url: str = Field(
+        "http://127.0.0.1:9000/llm",
+        validation_alias=AliasChoices("OPENAI_BASE_URL", "HALCTF_OPENAI_BASE_URL"),
+    )
+    mcp_endpoint: str = Field(
+        "http://127.0.0.1:9000/mcp",
+        validation_alias=AliasChoices("MCP_ENDPOINT", "HALCTF_MCP_ENDPOINT"),
+    )
+    sidecar_url: str = Field(
+        "http://127.0.0.1:9000",
+        validation_alias=AliasChoices("HAL_SIDECAR_URL", "HALCTF_SIDECAR_URL"),
+    )
+    # 起動 30 秒以内に `USER ID: <uid>` を stdout 出力する必要がある。
+    # uid は HAL_* として注入される想定。正確なキー名は現地で要確認。
+    user_id: str = Field(
+        "unknown-uid",
+        validation_alias=AliasChoices(
+            "HAL_USER_ID", "HAL_UID", "HAL_USERID", "USER_ID", "HALCTF_USER_ID"
+        ),
+    )
+    bonus_flag: str | None = Field(
+        None, validation_alias=AliasChoices("BONUS_FLAG", "HALCTF_BONUS_FLAG")
+    )
 
-    # --- フラグ提出 / 完了通知 API（未確定。spec 確定後に差し替え）---
-    submit_base_url: str = "http://localhost:8000"
-    submit_path: str = "/submit"
-    completion_path: str = "/complete"
+    # --- モデル（実提供名。小型優先 → 難所で大コンテキストへフォールバック）---
+    # gce-gpu-cluster: llama3-2 / llama-3.1-8b / qwen3.6-35b-a3b（同時4枠）
+    # google: google/gemma-4-26b-a4b-it-maas（256K・同時無制限）
+    model_chain: str = "llama3-2,llama-3.1-8b,qwen3.6-35b-a3b,google/gemma-4-26b-a4b-it-maas"
 
-    # --- フラグ形式（正規表現）---
-    flag_regex: str = r"flag\{[^}]+\}"
+    # --- フラグ形式（正規表現。web スクレイプ時の抽出用。env 直読み時は使わない）---
+    flag_regex: str = r"[A-Za-z0-9_]{0,16}\{[^}]{1,256}\}"
 
-    # --- ループ制御 ---
+    # --- ループ / 実行制御 ---
     max_steps: int = 20
-    step_timeout_sec: int = 60
-    run_budget_sec: int = 900
+    step_timeout_sec: int = 90
+    run_budget_sec: int = 3300  # 実行上限 1h に対し余裕を見る
+    heartbeat_sec: int = 45  # stdout 無音 2m でハングとみなされるため定期出力
 
-    # --- ローカル検証: mock で外部 API なしに end-to-end を回す ---
+    # --- 検知回避（"CAUGHT BY SOC" 対策）---
+    # 1 チャレンジあたりの誤提出許容回数。超えたら深追いせず切り上げる。
+    max_flag_attempts: int = 3
+    # 標的への連続アクセス間隔（秒）。総当たり的な挙動を避ける。
+    target_min_interval_sec: float = 0.4
+
+    # --- ローカル検証: mock で外部なしに end-to-end を回す ---
     use_mock: bool = False
 
     @property

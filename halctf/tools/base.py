@@ -33,8 +33,12 @@ class ToolContext:
     target: Any = None
     submitter: Any = None
     settings: Any = None
+    # 現在取り組んでいるチャレンジ ID（flag_submit がこれを付けて提出する）
+    challenge_id: str | None = None
     # 偵察結果などの外部状態（毎ターン LLM に全部渡さないための保管場所）
     scratch: dict[str, Any] | None = None
+    # 誤提出回数（検知回避のため上限を設ける）
+    flag_attempts: int = 0
 
     def __post_init__(self) -> None:
         if self.scratch is None:

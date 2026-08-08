@@ -1,5 +1,5 @@
-"""submit 層: フラグ提出 / 完了通知 API の抽象化。"""
+"""非推奨: halctf.services に移動しました。後方互換のための薄い再エクスポート。"""
 
-from halctf.submit.flag_api import HttpSubmitter, MockSubmitter, Submitter
+from halctf.services import MockPlatform, SidecarClient, Submitter
 
-__all__ = ["HttpSubmitter", "MockSubmitter", "Submitter"]
+__all__ = ["SidecarClient", "Submitter", "MockPlatform"]
