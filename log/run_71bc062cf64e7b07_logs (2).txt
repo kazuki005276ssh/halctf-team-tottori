@@ -1,0 +1,70 @@
+[VERIFY] USER ID: faked-nomad-939
+[VERIFY] 2026-08-08 14:06:17,600 INFO halctf.runtime: env HAL_DRY_RUN=1
+[VERIFY] 2026-08-08 14:06:17,600 INFO halctf.runtime: env HAL_USER_ID=faked-nomad-939
+[VERIFY] 2026-08-08 14:06:17,614 ERROR halctf.runner: MCP チャレンジ探索に失敗: [Errno 111] Connection refused
+[VERIFY] 2026-08-08 14:06:17,614 INFO halctf.runner: 対象: 0 問
+[VERIFY] 2026-08-08 14:06:17,615 WARNING halctf.sidecar: 完了通知に失敗（attempt=0）: [Errno 111] Connection refused
+[VERIFY] 2026-08-08 14:06:17,616 WARNING halctf.sidecar: 完了通知に失敗（attempt=1）: [Errno 111] Connection refused
+[VERIFY] 2026-08-08 14:06:17,616 WARNING halctf.sidecar: 完了通知に失敗（attempt=2）: [Errno 111] Connection refused
+[VERIFY] solved 0/0: []
+[VERIFY] Dry-run verification completed.
+[AGENT] USER ID: faked-nomad-939
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env BONUS_FLAG=flag{4b4a9c104c0a455a4701a72b}
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_AGENT_MODEL=llama-3.1-8b
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_CHALLENGE_CATEGORY=Bonus
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_CHALLENGE_DESCRIPTION=A great place to start — take a look ...
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_CHALLENGE_ID=1
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_CHALLENGE_NAME=Bonus Flag
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_CHALLENGE_SLUG=bonus
+[AGENT] 2026-08-08 14:50:24,880 INFO halctf.runtime: env HAL_MCP_HINT=MCP_ENDPOINT is a Streamable HTTP Mod...
+[AGENT] 2026-08-08 14:50:24,881 INFO halctf.runtime: env HAL_RUN_ID=71bc062cf64e7b07cb0c67123d00113d
+[AGENT] 2026-08-08 14:50:24,881 INFO halctf.runtime: env HAL_TEAM_UUID=d84d6063-471e-45bb-8980-a51d6a655e4b
+[AGENT] 2026-08-08 14:50:24,881 INFO halctf.runtime: env HAL_USER_ID=faked-nomad-939
+[AGENT] 2026-08-08 14:50:24,883 INFO halctf.runner: env からチャレンジ確定: id=1 name=Bonus Flag
+[AGENT] 2026-08-08 14:50:24,883 INFO halctf.runner: 対象: 1 問
+[NGINX-SIDECAR] POST /submit → 200
+[AGENT] 2026-08-08 14:50:24,981 INFO httpx: HTTP Request: POST http://127.0.0.1:9000/submit "HTTP/1.1 200 OK"
+[AGENT] 2026-08-08 14:50:24,981 INFO halctf.runner: fast-path 提出 1 -> False ({'status': 'correct', 'run_id': '71bc062cf64e7b07cb0c67123d00113d', 'points_awarded': 1})
+[NGINX-SIDECAR] 2026/08/08 14:50:54 [error] 3#3: *1 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:50:54,983 WARNING halctf.sidecar: 完了通知に失敗（attempt=0）: timed out
+[AGENT] .heartbeat 1
+[NGINX-SIDECAR] 2026/08/08 14:51:24 [error] 3#3: *4 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:51:24,985 WARNING halctf.sidecar: 完了通知に失敗（attempt=1）: timed out
+[AGENT] .heartbeat 2
+[NGINX-SIDECAR] 2026/08/08 14:51:54 [error] 3#3: *5 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:51:54,987 WARNING halctf.sidecar: 完了通知に失敗（attempt=2）: timed out
+[AGENT] solved 0/1: []
+[AGENT] USER ID: faked-nomad-939
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env BONUS_FLAG=flag{4b4a9c104c0a455a4701a72b}
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_AGENT_MODEL=llama-3.1-8b
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_CHALLENGE_CATEGORY=Bonus
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_CHALLENGE_DESCRIPTION=A great place to start — take a look ...
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_CHALLENGE_ID=1
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_CHALLENGE_NAME=Bonus Flag
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_CHALLENGE_SLUG=bonus
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_MCP_HINT=MCP_ENDPOINT is a Streamable HTTP Mod...
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_RUN_ID=71bc062cf64e7b07cb0c67123d00113d
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_TEAM_UUID=d84d6063-471e-45bb-8980-a51d6a655e4b
+[AGENT] 2026-08-08 14:52:07,023 INFO halctf.runtime: env HAL_USER_ID=faked-nomad-939
+[AGENT] 2026-08-08 14:52:07,026 INFO halctf.runner: env からチャレンジ確定: id=1 name=Bonus Flag
+[AGENT] 2026-08-08 14:52:07,026 INFO halctf.runner: 対象: 1 問
+[NGINX-SIDECAR] POST /submit → 200
+[AGENT] 2026-08-08 14:52:07,107 INFO httpx: HTTP Request: POST http://127.0.0.1:9000/submit "HTTP/1.1 200 OK"
+[AGENT] 2026-08-08 14:52:07,107 INFO halctf.runner: fast-path 提出 1 -> False ({'status': 'already_solved', 'run_id': '71bc062cf64e7b07cb0c67123d00113d', 'points_awarded': 0})
+[NGINX-SIDECAR] 2026/08/08 14:52:37 [error] 3#3: *1 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:52:37,109 INFO httpx: HTTP Request: POST http://127.0.0.1:9000/done "HTTP/1.1 502 Bad Gateway"
+[AGENT] 2026-08-08 14:52:37,109 WARNING halctf.sidecar: 完了通知が HTTP 502（attempt=0）
+[AGENT] .heartbeat 1
+[NGINX-SIDECAR] 2026/08/08 14:53:07 [error] 3#3: *1 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:53:07,110 WARNING halctf.sidecar: 完了通知に失敗（attempt=1）: timed out
+[AGENT] .heartbeat 2
+[NGINX-SIDECAR] 2026/08/08 14:53:37 [error] 3#3: *4 orchestrator could not be resolved (110: Operation timed out), client: 127.0.0.1, server: , request: "POST /done HTTP/1.1", host: "127.0.0.1:9000"
+[NGINX-SIDECAR] POST /done → 502
+[AGENT] 2026-08-08 14:53:37,113 WARNING halctf.sidecar: 完了通知に失敗（attempt=2）: timed out
+[AGENT] solved 0/1: []
+[SYSTEM] Run ended — non-zero exit (Completed)

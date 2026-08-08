@@ -69,7 +69,7 @@ class SidecarClient:
             try:
                 resp = self._http.post("/done", json={}, timeout=5.0)
                 if resp.status_code >= 500:
-                    logger.warning("完了通知 HTTP %s（attempt=%d, best-effort）", resp.status_code, attempt)
+                    logger.warning("完了通知 HTTP %s (best-effort)", resp.status_code)
                     continue
                 return
             except httpx.HTTPError as e:
