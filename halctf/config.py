@@ -79,7 +79,7 @@ class Settings(BaseSettings):
     flag_regex: str = r"flag\{[^}]{1,256}\}"
 
     # --- ループ / 実行制御 ---
-    max_steps: int = 20
+    max_steps: int = 28  # web の多段(列数→DB判定→列挙→ダンプ)に届くよう余裕を持たせる
     step_timeout_sec: int = 90
     run_budget_sec: int = 3300  # 実行上限 1h に対し余裕を見る
     heartbeat_sec: int = 45  # stdout 無音 2m でハングとみなされるため定期出力

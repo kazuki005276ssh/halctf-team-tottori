@@ -45,8 +45,11 @@ _HOSTPORT_RE = re.compile(r"^[\w.-]+:\d{2,5}$")
 # カテゴリ別の攻略プレイブック（小型モデルに定石を与える）。認可された CTF 競技用。
 _PLAYBOOKS: list[tuple[tuple[str, ...], str]] = [
     (("sql",),
-     "SQLi: 検索パラメータに ' OR '1'='1'-- や ' UNION SELECT ...-- を入れる。列数を合わせ、"
-     "information_schema.tables/columns でスキーマ列挙し、露出したテーブルから flag を読む。"),
+     "SQLi手順: (1)列数特定 ' UNION SELECT 1,2,3,...-- で200になる列数を探す。"
+     "(2)DB判定: information_schema/database()/@@version が500ならSQLite。"
+     "(3)テーブル列挙: SQLite→' UNION SELECT 1,name,3 FROM sqlite_master WHERE type='table'-- 、"
+     "MySQL→information_schema.tables、Postgres→pg_tables。"
+     "(4)非公開テーブルを ' UNION SELECT 1,<列>,3 FROM <table>-- でダンプし可視列で flag を読む。"),
     (("ssrf",),
      "SSRF: URL を受け取るパラメータに内部URL(http://127.0.0.1, http://localhost:PORT,"
      " http://169.254.169.254/)を渡す。フィルタは別表記/リダイレクトで回避。"),
