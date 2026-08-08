@@ -95,3 +95,31 @@ def test_read_env_missing_hides_value(monkeypatch):
     reg, ctx = web_registry(), _ctx()
     res = reg.get("read_env").run({"name": "NOPE_FLAG"}, ctx)
     assert not res.ok
+
+
+def test_power_registry_adds_run_python():
+    from halctf.tools import power_registry
+    expected = {"read_env", "http_request", "run_python", "flag_submit"}
+    assert set(power_registry().names()) == expected
+
+
+def test_registry_for_category_web_vs_power():
+    from halctf.tools import registry_for_category
+    # 純web は http 中心の3ツール
+    assert "run_python" not in registry_for_category("Web / SQL Injection").names()
+    assert "run_python" not in registry_for_category("Web / SSRF").names()
+    assert "run_python" not in registry_for_category("Web / XXE").names()
+    # JWT(Auth)/deser/network/forensics/cloud は run_python 入り
+    assert "run_python" in registry_for_category("Web / Auth").names()
+    assert "run_python" in registry_for_category("Web / Insecure Deserialization").names()
+    assert "run_python" in registry_for_category("Network / Protocol Reverse Engineering").names()
+    assert "run_python" in registry_for_category("Forensics / Network").names()
+    assert "run_python" in registry_for_category("Cloud / IAM Misconfiguration").names()
+
+
+def test_run_python_executes_code():
+    from halctf.tools.run_python import make_run_python_tool
+    tool = make_run_python_tool()
+    code = "import hmac,hashlib; print(hmac.new(b'k',b'x',hashlib.sha256).hexdigest())"
+    res = tool.run({"code": code}, _ctx())
+    assert res.ok and len(res.output.strip()) == 64

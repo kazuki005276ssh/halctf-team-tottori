@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from halctf.tools import exploit, flag_submit, http_request, read_env, recon
+from halctf.tools import exploit, flag_submit, http_request, read_env, recon, run_python
 from halctf.tools.base import Tool, ToolContext, ToolRegistry, ToolResult
 
 
@@ -30,6 +30,35 @@ def web_registry() -> ToolRegistry:
     return reg
 
 
+def power_registry() -> ToolRegistry:
+    """暗号・バイナリ・デシリアライズ等の難問用（web に run_python を追加）。
+
+    read_env / http_request / run_python / flag_submit の4つ。
+    JWT・pickle・生TCP・forensics などは run_python（stdlib）で攻略する。
+    """
+    reg = web_registry()
+    reg.register(run_python.TOOL)
+    return reg
+
+
+def registry_for_category(category: str) -> ToolRegistry:
+    """チャレンジのカテゴリで道具を出し分ける（小型モデルの選択負荷を下げる）。
+
+    純 web（SQLi/SSRF/XXE）は http_request 中心の3ツール。
+    Auth(JWT)/Deserialization/Network/Forensics/Cloud/Crypto/Multi-Stage は
+    run_python を足した4ツール。
+    """
+    cat = (category or "").lower()
+    web_only = ("sql" in cat or "ssrf" in cat or "xxe" in cat) and "auth" not in cat
+    if web_only:
+        return web_registry()
+    if cat.startswith("web") and not any(
+        k in cat for k in ("auth", "deser", "jwt", "serial")
+    ):
+        return web_registry()
+    return power_registry()
+
+
 __all__ = [
     "Tool",
     "ToolContext",
@@ -37,4 +66,6 @@ __all__ = [
     "ToolResult",
     "default_registry",
     "web_registry",
+    "power_registry",
+    "registry_for_category",
 ]

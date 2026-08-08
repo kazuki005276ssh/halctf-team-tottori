@@ -22,7 +22,7 @@ from halctf.client.base import LLMClient
 from halctf.loop.react import ReactAgent
 from halctf.runtime import Heartbeat, announce_user_id, log_identity_env
 from halctf.services.base import Challenge, ChallengeService, Submitter
-from halctf.tools import ToolContext, web_registry
+from halctf.tools import ToolContext, registry_for_category
 from halctf.tools.base import ToolRegistry
 
 logger = logging.getLogger("halctf.runner")
@@ -128,7 +128,8 @@ class AgentRunner:
         self.challenges = challenges
         self.submitter = submitter
         self.settings = settings
-        self.registry = registry or web_registry()
+        # 明示指定があればそれを使い、無ければチャレンジのカテゴリで出し分ける。
+        self._explicit_registry = registry
         self.target = target
 
     def solve_challenge(self, ch: Challenge, *, deadline: float) -> ChallengeOutcome:
@@ -138,9 +139,11 @@ class AgentRunner:
             settings=self.settings,
             challenge_id=ch.id,
         )
+        registry = self._explicit_registry or registry_for_category(ch.category)
+        logger.info("道具: %s（category=%s）", registry.names(), ch.category)
         agent = ReactAgent(
             client=self.client,
-            registry=self.registry,
+            registry=registry,
             ctx=ctx,
             max_steps=self.settings.max_steps,
             run_budget_sec=self.settings.run_budget_sec,
