@@ -75,8 +75,10 @@ class Settings(BaseSettings):
     model_chain: str = "llama-3.1-8b,qwen3.6-35b-a3b,google/gemma-4-26b-a4b-it-maas,llama3-2"
 
     # --- フラグ形式（正規表現。web スクレイプ時の抽出/自動提出用）---
-    # 実物は flag{...}（例 flag{4b4a9c...}）。自動抽出の誤検出を避け厳密化。
-    flag_regex: str = r"flag\{[^}]{1,256}\}"
+    # 形式は問題ごとに違う: flag{...}（Bonus）や HALCTF{...}（Cassandra）等。
+    # 「英字始まりの短い接頭辞 + { 記号無しの英数字列 }」に一般化しつつ、
+    # CSS/JS の {...} を拾わないよう中身は英数字系のみ・6文字以上に限定。
+    flag_regex: str = r"[A-Za-z][A-Za-z0-9_]{1,14}\{[A-Za-z0-9_+/=.\-]{6,256}\}"
 
     # --- ループ / 実行制御 ---
     max_steps: int = 28  # web の多段(列数→DB判定→列挙→ダンプ)に届くよう余裕を持たせる
