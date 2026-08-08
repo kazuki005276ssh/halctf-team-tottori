@@ -30,13 +30,40 @@ logger = logging.getLogger("halctf.runner")
 TASK_TEMPLATE = """次の CTF チャレンジのフラグを取得して提出してください。
 
 {brief}
-
+{targets}
 方針:
 - 環境変数にフラグがある場合は read_env で読む。
-- web 標的なら http_get で偵察・攻略する（robots.txt も確認）。
+- web 標的なら http_request で偵察・攻略する（SQLi は url のクエリ、XXE/deserialize は
+  POST の body、JWT は Authorization ヘッダ。robots.txt も確認）。
 - 確信の持てるフラグが得られたら flag_submit で提出する。誤提出は避ける。"""
 
 _ENV_FLAG_HINT = re.compile(r"\b(FLAG_[A-Z0-9_]+|BONUS_FLAG)\b")
+_URL_RE = re.compile(r"https?://[^\s'\"]+")
+_HOSTPORT_RE = re.compile(r"^[\w.-]+:\d{2,5}$")
+
+
+def target_hints_from_env() -> list[str]:
+    """env から標的アドレスを組み立てて LLM に渡す。
+
+    実プラットフォームは標的を `HAL_TARGET_IP` + `HAL_TARGET_PORT` で注入する。
+    これを URL 化して最優先で渡す。加えてフラグ以外の env から URL / host:port
+    形式の値も拾う（別名で来ても取りこぼさないため）。
+    """
+    hints: list[str] = []
+    ip = os.environ.get("HAL_TARGET_IP")
+    port = os.environ.get("HAL_TARGET_PORT")
+    if ip:
+        base = f"http://{ip}:{port}" if port else f"http://{ip}"
+        hints.append(f"標的 = {base}")
+    for k, v in sorted(os.environ.items()):
+        if not isinstance(v, str):
+            continue
+        if k.upper().startswith(("FLAG_", "BONUS_FLAG")):  # フラグは標的でない
+            continue
+        val = v.strip()
+        if _URL_RE.search(val) or _HOSTPORT_RE.match(val):
+            hints.append(f"{k}={val[:200]}")
+    return hints[:12]
 
 
 @dataclass
@@ -119,7 +146,11 @@ class AgentRunner:
             run_budget_sec=self.settings.run_budget_sec,
         )
         agent.emit_completion = False  # 完了通知は runner が最後にまとめて出す
-        task = TASK_TEMPLATE.format(brief=ch.brief())
+        hints = target_hints_from_env()
+        targets = ("\n利用可能な標的（env より）:\n" + "\n".join(hints) + "\n") if hints else ""
+        if hints:
+            logger.info("標的候補: %s", hints)
+        task = TASK_TEMPLATE.format(brief=ch.brief(), targets=targets)
         result = agent.solve(task, deadline=deadline)
         logger.info("challenge %s: solved=%s reason=%s", ch.id, result.solved, result.reason)
         return ChallengeOutcome(ch.id, result.solved, result.flag, result.steps, result.reason)

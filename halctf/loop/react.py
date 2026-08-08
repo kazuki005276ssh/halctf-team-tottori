@@ -110,7 +110,11 @@ class ReactAgent:
                 if tres and tres.flag_captured:
                     state.flag = tres.flag_captured
                 if tres and tres.done:
-                    return self._finish(RunResult(True, state.flag, state.step, "solved"))
+                    # done=True でも「受理された(ok かつ flag_captured)」ときだけ solved。
+                    # 誤提出上限などの打ち切りは done=True だが未解決扱いにする。
+                    solved = bool(tres.ok and tres.flag_captured)
+                    reason = "solved" if solved else "gave_up"
+                    return self._finish(RunResult(solved, state.flag, state.step, reason))
 
         return self._finish(RunResult(False, state.flag, state.step, "max_steps"))
 

@@ -21,7 +21,34 @@ def test_default_registry_has_three_tools():
 
 
 def test_web_registry_tools():
-    assert set(web_registry().names()) == {"read_env", "http_get", "flag_submit"}
+    assert set(web_registry().names()) == {"read_env", "http_request", "flag_submit"}
+
+
+def test_http_request_get_and_post():
+    import httpx
+
+    from halctf.tools.http_request import make_http_request_tool
+
+    seen = {}
+
+    def handler(request):
+        seen["method"] = request.method
+        seen["body"] = request.content.decode()
+        seen["auth"] = request.headers.get("authorization", "")
+        return httpx.Response(200, text="OK body")
+
+    tool = make_http_request_tool(transport=httpx.MockTransport(handler))
+    ctx = _ctx()
+    # GET（既定）
+    r = tool.run({"url": "http://t/search?q=1"}, ctx)
+    assert r.ok and "OK body" in r.output and seen["method"] == "GET"
+    # POST + ヘッダ + ボディ
+    r = tool.run(
+        {"url": "http://t/import", "method": "POST", "body": "<xml/>",
+         "headers": {"Authorization": "Bearer x"}},
+        ctx,
+    )
+    assert seen["method"] == "POST" and seen["body"] == "<xml/>" and seen["auth"] == "Bearer x"
 
 
 def test_recon_stores_scratch():

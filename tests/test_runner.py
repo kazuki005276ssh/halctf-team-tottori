@@ -67,3 +67,19 @@ def test_runner_react_fallback_when_no_env_flag(monkeypatch):
     runner = AgentRunner(MockClient(), platform, platform, settings, registry=web_registry())
     outcomes = runner.run()
     assert outcomes[0].solved
+
+
+def test_target_hints_combines_ip_port(monkeypatch):
+    monkeypatch.setenv("HAL_TARGET_IP", "10.244.0.103")
+    monkeypatch.setenv("HAL_TARGET_PORT", "9002")
+    from halctf.runner import target_hints_from_env
+    hints = target_hints_from_env()
+    assert any("http://10.244.0.103:9002" in h for h in hints)
+
+
+def test_target_hints_excludes_flags(monkeypatch):
+    monkeypatch.setenv("FLAG_1", "flag{secret}")
+    monkeypatch.setenv("BONUS_FLAG", "flag{bonus}")
+    from halctf.runner import target_hints_from_env
+    hints = target_hints_from_env()
+    assert not any("flag{" in h for h in hints)
