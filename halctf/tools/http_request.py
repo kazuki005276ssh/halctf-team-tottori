@@ -65,18 +65,32 @@ def make_http_request_tool(*, transport: httpx.BaseTransport | None = None) -> T
             time.sleep(interval - (now - last))
         ctx.scratch["_last_http"] = time.monotonic()
 
+        # ストリームで読み、サイズ上限 or 時間上限で必ず打ち切る。
+        # （SSE/Streamable HTTP 等の開きっぱなし応答で本文読取がハングするのを防ぐ）
         try:
-            resp = client.request(
-                method, url, headers={str(k): str(v) for k, v in headers.items()},
+            hdrs = {str(k): str(v) for k, v in headers.items()}
+            with client.stream(
+                method, url, headers=hdrs,
                 content=body if body is not None else None,
-            )
+            ) as resp:
+                keep = {"server", "location", "content-type", "www-authenticate", "set-cookie"}
+                shown = {k: v for k, v in resp.headers.items() if k.lower() in keep}
+                buf = bytearray()
+                start = time.monotonic()
+                truncated = False
+                for chunk in resp.iter_bytes():
+                    buf.extend(chunk)
+                    if len(buf) >= _MAX_BODY or time.monotonic() - start > 15:
+                        truncated = True
+                        break
+                status = resp.status_code
         except httpx.HTTPError as e:
             return ToolResult(ok=False, output=f"リクエスト失敗: {e}")
 
-        keep = {"server", "location", "content-type", "www-authenticate", "set-cookie"}
-        shown = {k: v for k, v in resp.headers.items() if k.lower() in keep}
-        out = f"HTTP {resp.status_code} {shown}\n{resp.text[:_MAX_BODY]}"
-        return ToolResult(ok=resp.status_code < 500, output=out)
+        text = bytes(buf[:_MAX_BODY]).decode("utf-8", errors="replace")
+        note = "（打ち切り）" if truncated else ""
+        out = f"HTTP {status} {shown}{note}\n{text}"
+        return ToolResult(ok=status < 500, output=out)
 
     return Tool(SPEC, _run)
 

@@ -83,3 +83,26 @@ def test_target_hints_excludes_flags(monkeypatch):
     from halctf.runner import target_hints_from_env
     hints = target_hints_from_env()
     assert not any("flag{" in h for h in hints)
+
+
+def test_target_hints_multi_service(monkeypatch):
+    monkeypatch.setenv("HAL_TARGET_FERRY_IP", "10.244.0.17")
+    monkeypatch.setenv("HAL_TARGET_FERRY_PORT", "9004")
+    monkeypatch.setenv("HAL_TARGET_UNDERWORLD_IP", "10.244.0.15")
+    monkeypatch.setenv("HAL_TARGET_UNDERWORLD_PORT", "9005")
+    from halctf.runner import target_hints_from_env
+    hints = target_hints_from_env()
+    joined = " ".join(hints)
+    assert "http://10.244.0.17:9004" in joined and "FERRY" in joined
+    assert "http://10.244.0.15:9005" in joined and "UNDERWORLD" in joined
+
+
+def test_target_hints_excludes_infra(monkeypatch):
+    monkeypatch.setenv("HAL_TARGET_IP", "10.0.0.9")
+    monkeypatch.setenv("HAL_TARGET_PORT", "8080")
+    monkeypatch.setenv("MCP_ENDPOINT", "http://127.0.0.1:9000/mcp/")
+    monkeypatch.setenv("OPENAI_BASE_URL", "http://127.0.0.1:9000/llm")
+    from halctf.runner import target_hints_from_env
+    hints = " ".join(target_hints_from_env())
+    assert "10.0.0.9:8080" in hints
+    assert "127.0.0.1:9000" not in hints  # 補助基盤は除外
