@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass
 
@@ -75,7 +76,15 @@ class ReactAgent:
                 return self._finish(RunResult(False, None, state.step, "budget"))
             state.step += 1
 
-            result = self.client.chat(state.build_messages(), tools=specs)
+            try:
+                result = self.client.chat(state.build_messages(), tools=specs)
+            except Exception as e:
+                # LLM が繰り返し失敗(gemma 504 過負荷 等)。クラッシュさせず優雅に終了。
+                # 非ゼロ終了だとプラットフォームが再起動→時間浪費するため握りつぶす。
+                logger.warning("LLM 呼び出し失敗、challenge を打ち切り: %s", e)
+                return self._finish(
+                    RunResult(bool(state.flag), state.flag, state.step, "llm_error")
+                )
             assistant_msg = ChatMessage(
                 role="assistant", content=result.content, tool_calls=result.tool_calls
             )
@@ -134,6 +143,9 @@ class ReactAgent:
         pattern = getattr(self.ctx.settings, "flag_regex", r"flag\{[^}]{1,256}\}")
         flag = extract_flag(obs, pattern)
         if not flag or flag in state.submitted_flags:
+            return None
+        # BONUS_FLAG はスモークテスト用で各問題の答えではない。誤提出しない。
+        if flag == os.environ.get("BONUS_FLAG"):
             return None
         max_attempts = getattr(self.ctx.settings, "max_flag_attempts", 3)
         if self.ctx.flag_attempts >= max_attempts:

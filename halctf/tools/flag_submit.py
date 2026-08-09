@@ -37,6 +37,15 @@ def _run(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
     if not flag:
         return ToolResult(ok=False, output="flag が空です。")
 
+    # BONUS_FLAG はスモークテスト用で各問題の答えではない。提出させない。
+    import os
+
+    if flag == os.environ.get("BONUS_FLAG"):
+        return ToolResult(
+            ok=False,
+            output="それは BONUS_FLAG（スモーク用）で答えではない。標的から本物のフラグを取れ。",
+        )
+
     if ctx.submitter is None:
         return ToolResult(ok=False, output="提出クライアントが未設定です。")
 
