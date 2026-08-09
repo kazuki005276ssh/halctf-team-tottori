@@ -53,9 +53,11 @@ _PLAYBOOKS: list[tuple[tuple[str, ...], str]] = [
      "MySQL→information_schema.tables、Postgres→pg_tables。"
      "(4)非公開テーブルを ' UNION SELECT 1,<列>,3 FROM <table>-- でダンプし可視列で flag を読む。"),
     (("ssrf",),
-     "SSRF: 到達可能なサービス(例 ferry)の URL パラメータに、直接叩けない内部サービス"
-     "(例 underworld の http://IP:PORT/…)を渡して代理アクセスさせ、その応答から flag。"
-     "フィルタは別表記(短縮/別ホスト記法/リダイレクト)で回避。169.254.169.254 も試す。"),
+     "SSRF: 到達可能サービス(ferry)の url パラメータに内部サービスを代理アクセスさせ応答から flag。"
+     "内部指定は まずサービス名 http://underworld:PORT/ を試す(内部DNSで解決しIPフィルタを回避)。"
+     "効かねばIP別表記: 10進 http://<整数IP>:PORT、16進 http://0xXXXXXXXX:PORT、"
+     "IPv6射影 http://[::ffff:IP]:PORT。403=フィルタ拒否→別表記、502=到達失敗→ホスト/ポート見直し。"
+     "サンドボックスは外部DNS無し(nip.io等は不可)。169.254.169.254 も一応試す。"),
     (("xxe",),
      "XXE: POST する XML に外部実体を仕込む: "
      "<!DOCTYPE r [<!ENTITY x SYSTEM \"file:///flag\">]><r>&x;</r>。応答に展開される。"),
