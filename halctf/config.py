@@ -81,7 +81,8 @@ class Settings(BaseSettings):
     flag_regex: str = r"[A-Za-z][A-Za-z0-9_]{1,14}\{[A-Za-z0-9_+/=.\-]{6,256}\}"
 
     # --- ループ / 実行制御 ---
-    max_steps: int = 28  # web の多段(列数→DB判定→列挙→ダンプ)に届くよう余裕を持たせる
+    max_steps: int = 40  # 多段(SQLi列挙/IAM role連鎖/SSRF経路探索)に届くよう余裕を持たせる
+    dry_run: bool = Field(False, validation_alias=AliasChoices("HAL_DRY_RUN"))
     step_timeout_sec: int = 90
     run_budget_sec: int = 3300  # 実行上限 1h に対し余裕を見る
     heartbeat_sec: int = 45  # stdout 無音 2m でハングとみなされるため定期出力

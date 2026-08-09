@@ -77,8 +77,11 @@ _PLAYBOOKS: list[tuple[tuple[str, ...], str]] = [
      "Forensics: 与えられた pcap/ファイルを run_python(urllib)で取得し、"
      "バイト列/ストリームを走査して flag を探す。"),
     (("cloud", "iam"),
-     "Cloud/IAM: role-assumption を多段でたどる。run_python で STS 相当を叩き、"
-     "信頼関係のある role を順に assume して権限を上げる。"),
+     "Cloud/IAM(多段role assume): /whoami で現role、/roles で各roleと信頼関係(誰が誰をassume可)"
+     "を読む。intern から flag 保持 role までの信頼チェーンを設計し、その順に POST /assume で"
+     "1つずつ昇格する。403=その role は現 role を信頼しない(順序違い)→別の中継 role を経由。"
+     "429=速すぎ→間隔を空け同じ失敗を繰り返さない。存在しないパスを闇雲に叩かない。"
+     "最終 role に到達したら /flag 等を読む。"),
 ]
 
 
@@ -238,6 +241,10 @@ class AgentRunner:
     def run(self, *, max_challenges: int | None = None) -> list[ChallengeOutcome]:
         announce_user_id(self.settings.user_id)
         log_identity_env()  # uid/challenge/model の注入 env を初回ログで確認
+        # ingest の起動検証(HAL_DRY_RUN)では USER ID を出せれば良い。探索/推論はせず即終了。
+        if getattr(self.settings, "dry_run", False):
+            logger.info("dry-run: 起動検証のみ。探索・推論はスキップ。")
+            return []
         deadline = time.monotonic() + self.settings.run_budget_sec
         outcomes: list[ChallengeOutcome] = []
 
